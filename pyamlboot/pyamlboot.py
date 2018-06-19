@@ -58,16 +58,18 @@ class AmlogicSoC(object):
 			raise ValueError('Device not found')
 
 	def writeSimpleMemory(self, address, data):
+		"""Write a chunk of data to memory"""
 		if len(data) > 64:
 			raise ValueError('Maximum size of 64bytes')
 
 		self.dev.ctrl_transfer(bmRequestType = 0x40, 
-							   bRequest = REQ_WRITE_MEM,
-							   wValue = address >> 16,
-							   wIndex = address & 0xffff,
-							   data_or_wLength = data)
+                               bRequest = REQ_WRITE_MEM,
+                               wValue = address >> 16,
+                               wIndex = address & 0xffff,
+                               data_or_wLength = data)
 
 	def writeMemory(self, address, data):
+		"""Write some data to memory"""
 		length = len(data)
 		offset = 0
 
@@ -80,17 +82,23 @@ class AmlogicSoC(object):
 			offset = offset + 64
 
 	def readSimpleMemory(self, address, length):
+		"""Read a chunk of data from memory"""
 		if length == 0:
 			return ''
 
 		if length > 64:
 			raise ValueError('Maximum size of 64bytes')
 
-		ret = self.dev.ctrl_transfer(0xc0, REQ_READ_MEM, address >> 16, address & 0xffff, length)
+		ret = self.dev.ctrl_transfer(bmRequestType = 0xc0,
+                                     bRequest = REQ_READ_MEM,
+                                     wValue = address >> 16,
+                                     wIndex = address & 0xffff,
+                                     data_or_wLength = length)
 
 		return ''.join([chr(x) for x in ret])
 
 	def readMemory(self, address, length):
+		"""Read some data from memory"""
 		data = ''
 		offset = 0
 
@@ -109,17 +117,23 @@ class AmlogicSoC(object):
 	# modifyMemory
 
 	def run(self, address, keep_power=True):
+		"""Run code from memory"""
 		if keep_power:
 			data = address | FLAG_KEEP_POWER_ON
 		else:
 			data = address
 		controlData = pack('<I', data)
-		self.dev.ctrl_transfer(0x40, REQ_RUN_IN_ADDR, address >> 16, address & 0xffff, controlData)
+		self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_RUN_IN_ADDR,
+                               wValue = address >> 16,
+                               wIndex = address & 0xffff,
+                               data_or_wLength = controlData)
 
 	# writeAux
 	# readAux
 
 	def writeLargeMemory(self, address, data, blockLength=64, appendZeros=False):
+		"""Write some data to memory, for large transfers with a programmable block length"""
 		if appendZeros:
 			append = len(data) % blockLength
 			data = data + pack('b', 0) * append
@@ -141,7 +155,11 @@ class AmlogicSoC(object):
 						usb.util.endpoint_direction(e.bEndpointAddress) == \
 						usb.util.ENDPOINT_OUT)
 
-		self.dev.ctrl_transfer(0x40, REQ_WR_LARGE_MEM, blockLength, blockCount, controlData)
+		self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_WR_LARGE_MEM,
+                               wValue = blockLength,
+                               wIndex = blockCount,
+                               data_or_wLength = controlData)
 
 		while blockCount > 0:
 			ep.write(data[offset:offset+blockLength], 100)
@@ -149,6 +167,7 @@ class AmlogicSoC(object):
 			blockCount = blockCount - 1
 
 	def readLargeMemory(self, address, length, blockLength=64, appendZeros=False):
+		"""Read some data from memory, for large transfers with a programmable block length"""
 		if appendZeros:
 			length = length + (length % blockLength)
 		elif length % blockLength != 0:
@@ -168,7 +187,11 @@ class AmlogicSoC(object):
 						usb.util.endpoint_direction(e.bEndpointAddress) == \
 						usb.util.ENDPOINT_IN)
 
-		self.dev.ctrl_transfer(0x40, REQ_RD_LARGE_MEM, blockLength, blockCount, controlData)
+		self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_RD_LARGE_MEM,
+                               wValue = blockLength,
+                               wIndex = blockCount,
+                               data_or_wLength = controlData)
 
 		while blockCount > 0:
 			data = data + ''.join(map(chr,ep.read(blockLength, 100)))
@@ -177,7 +200,11 @@ class AmlogicSoC(object):
 		return data
 
 	def identify(self):
-		ret = self.dev.ctrl_transfer(0xc0, REQ_IDENTIFY_HOST, 0, 0, 8)
+		"""Identify the ROM Protocol"""
+		ret = self.dev.ctrl_transfer(bmRequestType = 0xc0,
+                                     bRequest = REQ_IDENTIFY_HOST,
+                                     wValue = 0, wIndex = 0,
+                                     data_or_wLength = 8)
 
 		return ''.join([chr(x) for x in ret])
 
@@ -185,10 +212,18 @@ class AmlogicSoC(object):
 	# tplStat
 
 	def sendPassword(self, password):
+		"""Send password"""
 		if length != 64:
 			raise ValueError('Password size is 64bytes')
 		controlData = [ord(elem) for elem in password]
-		self.dev.ctrl_transfer(0x40, REQ_PASSWORD, 0, 0, controlData)
+		self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_PASSWORD,
+                               wValue = 0, wIndex = 0,
+                               data_or_wLength = controlData)
 
 	def nop(self):
-		self.dev.ctrl_transfer(0x40, REQ_NOP, 0, 0, None)
+		"""No-Operation, for testing purposes"""
+		self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_NOP,
+                               wValue = 0, wIndex = 0,
+                               data_or_wLength = None)
