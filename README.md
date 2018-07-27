@@ -2,7 +2,7 @@
 
 The Amlogic SoCs have a USB Boot mode setting itself in USB Gadget mode with a custom protocol.
 
-The protocol reverse engineering can be found in the [PROTOCOL.md|PROTOCOL.md] file.
+The protocol reverse engineering can be found in the [PROTOCOL.md](PROTOCOL.md) file.
 
 A library `pyamlboot` provides all the calls provided by the USB protocol, and the `boot.py` permit booting from the SoC ROM in USB Boot mode.
 
