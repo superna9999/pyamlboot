@@ -23,7 +23,7 @@ Plug into this USB port
  |___| |__| |__|
 -----------------
 
-``
+```
 
 On a Linux Machine (Windows or MacOs may also work, untested) :
 
