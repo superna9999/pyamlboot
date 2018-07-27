@@ -3,6 +3,7 @@
 
 import time
 import sys
+import os
 from pyamlboot import pyamlboot
 
 DDR_LOAD = 0xd9000000
@@ -10,6 +11,7 @@ BL2_PARAMS = 0xd900c000
 DDR_RUN = 0xd9000000
 UBOOT_LOAD = 0x200c000
 UBOOT_RUN = 0xd9000000
+UBOOT_SCRIPTADDR = 0x1f000000
 
 DDR_FILE = 'files/usbbl2runpara_ddrinit.bin'
 FIP_FILE = 'files/usbbl2runpara_runfipimg.bin'
@@ -73,6 +75,13 @@ if __name__ == '__main__':
         tpl = f.read()
     dev.writeLargeMemory(UBOOT_LOAD, tpl, 64, True)
     print("[DONE]")
+
+    if os.path.isfile("boot.scr"):
+        print("Writing boot.scr at 0x%x..." % (UBOOT_SCRIPTADDR))
+        with open("boot.scr", "rb") as f:
+            script = f.read()
+        dev.writeMemory(UBOOT_SCRIPTADDR, script)
+        print("[DONE]")
 
     if ord(socid[3]) == 8:
         print("Running at 0x%x..." % BL2_PARAMS)
