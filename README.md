@@ -111,3 +111,57 @@ Warning: ethernet@c9410000 (eth0) using random MAC address - da:0d:7d:a3:38:00
 eth0: ethernet@c9410000
 Hit any key to stop autoboot:  0
 ```
+
+## Booting full system from USB
+
+Copy the files :
+- Image
+- `meson-gxl-s905x-libretech-cc.dtb` as `libretech-cc.dtb`, or `meson-gxl-s905x-khadas-vim.dtb` into `khadas-vim.dtb`
+- A cpio initramfs in uboot format as `rootfs.cpio.uboot`
+- Eventually change `boot.cmd` to add more commands before booting linux
+
+If `boot.cmd` changed, run :
+
+```
+mkimage -C none -A arm -T script -d boot.cmd boot.scr
+```
+
+Then :
+
+```
+sudo ./boot.py
+```
+
+And you will see on the Host :
+```
+ROM: 2.2 Stage: 0.0
+Writing files/libretech-cc/u-boot.bin.usb.bl2 at 0xd9000000...
+[DONE]
+Writing files/usbbl2runpara_ddrinit.bin at 0xd900c000...
+[DONE]
+Running at 0xd9000000...
+[DONE]
+Waiting...
+[DONE]
+ROM: 2.2 Stage: 0.8
+Running at 0xd900c000...
+[DONE]
+Waiting...
+[DONE]
+Writing files/libretech-cc/u-boot.bin.usb.bl2 at 0xd9000000...
+[DONE]
+Writing files/usbbl2runpara_runfipimg.bin at 0xd900c000...
+[DONE]
+Writing files/libretech-cc/u-boot.bin.usb.tpl at 0x200c000...
+[DONE]
+Writing boot.scr at 0x1f000000...
+[DONE]
+Writing Image at 0x20080000...
+[DONE]
+Writing libretech-cc.dtb at 0x20000000...
+[DONE]
+Writing rootfs.cpio.uboot at 0x26000000...
+[DONE]
+Running at 0xd900c000...
+[DONE]
+```
