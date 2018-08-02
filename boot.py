@@ -12,6 +12,9 @@ DDR_RUN = 0xd9000000
 UBOOT_LOAD = 0x200c000
 UBOOT_RUN = 0xd9000000
 UBOOT_SCRIPTADDR = 0x1f000000
+UBOOT_IMAGEADDR = 0x20080000
+UBOOT_DTBADDR = 0x20000000
+UBOOT_INITRDADDR = 0x26000000
 
 DDR_FILE = 'files/usbbl2runpara_ddrinit.bin'
 FIP_FILE = 'files/usbbl2runpara_runfipimg.bin'
@@ -45,7 +48,7 @@ if __name__ == '__main__':
     print("[DONE]")
 
     print("Waiting...");
-    time.sleep(2)
+    time.sleep(1)
     print("[DONE]")
 
     socid = dev.identify()
@@ -57,7 +60,7 @@ if __name__ == '__main__':
         print("[DONE]")
 
         print("Waiting...");
-        time.sleep(2)
+        time.sleep(1)
         print("[DONE]")
 
     print("Writing %s at 0x%x..." % ((BL2_FILE % sys.argv[1]), DDR_LOAD))
@@ -81,6 +84,27 @@ if __name__ == '__main__':
         with open("boot.scr", "rb") as f:
             script = f.read()
         dev.writeMemory(UBOOT_SCRIPTADDR, script)
+        print("[DONE]")
+
+    if os.path.isfile("Image"):
+        print("Writing Image at 0x%x..." % (UBOOT_IMAGEADDR))
+        with open("Image", "rb") as f:
+            image = f.read()
+        dev.writeLargeMemory(UBOOT_IMAGEADDR, image, 512, True)
+        print("[DONE]")
+
+    if os.path.isfile("%s.dtb" % sys.argv[1]):
+        print("Writing %s.dtb at 0x%x..." % (sys.argv[1], UBOOT_DTBADDR))
+        with open("%s.dtb" % sys.argv[1], "rb") as f:
+            dtb = f.read()
+        dev.writeMemory(UBOOT_DTBADDR, dtb)
+        print("[DONE]")
+
+    if os.path.isfile("rootfs.cpio.uboot"):
+        print("Writing rootfs.cpio.uboot at 0x%x..." % (UBOOT_INITRDADDR))
+        with open("rootfs.cpio.uboot", "rb") as f:
+            rootfs = f.read()
+        dev.writeLargeMemory(UBOOT_INITRDADDR, rootfs, 512, True)
         print("[DONE]")
 
     if ord(socid[3]) == 8:
