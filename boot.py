@@ -76,7 +76,7 @@ class BootUSB:
         self.soc_id()
         if ord(self.socid[3]) == 8:
             self.run(self.BL2_PARAMS)
-            self.wait()
+            self.wait(1)
 
     def load_uboot(self):
         self.init_ddr()
