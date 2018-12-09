@@ -1,5 +1,4 @@
 pyamlboot roadmap :
-- push the u-boot usb boot patch upstream
 - Move defines from boot.by into yaml files
 - push to pypi (add setup.py and so on)
 - integrate with meta-meson, that could use a deploy/image dir to entirely boot from usb
