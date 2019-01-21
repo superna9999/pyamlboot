@@ -253,7 +253,12 @@ class AmlogicSoC(object):
 
         return ''.join([chr(x) for x in ret])
 
-    # tplCommand
+    def tplCommand(self, subcode, command):
+        self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_TPL_CMD,
+                               wValue = 0, wIndex = subcode,
+                               data_or_wLength = command)
+
     # tplStat
 
     def sendPassword(self, password):
