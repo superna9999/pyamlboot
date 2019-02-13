@@ -11,7 +11,7 @@ gx_boards = {"libretech-cc", "libretech-ac", "khadas-vim", "khadas-vim2", "odroi
 axg_boards = {"s400", "s420", "apollo" }
 
 class BootUSB:
-    def __init__(self, board, fpath):
+    def __init__(self, board, fpath, upath):
         self.UBOOT_SCRIPTADDR = 0x8000000
         self.UBOOT_IMAGEADDR = 0x8080000
         self.UBOOT_DTBADDR = 0x8008000
@@ -39,7 +39,10 @@ class BootUSB:
 
         self.dev = pyamlboot.AmlogicSoC()
         self.fpath = fpath
-        self.bpath = os.path.join(fpath, board)
+        if upath:
+            self.bpath = upath
+        else:
+            self.bpath = os.path.join(upath, board)
 
     def wait(self, t):
         print("Waiting...");
@@ -99,6 +102,8 @@ def parse_cmdline(boards):
     parser.add_argument('--version', '-v', action='version', version='%(prog)s 0.1')
     parser.add_argument('board',  action='store', choices=boards,
                         help="board type to boot on")
+    parser.add_argument('--board-files', dest='upath',  action='store',
+                        help="Path to Board files")
     parser.add_argument('--image', dest='imagefile',  action='store',
                         help="image file to load")
     parser.add_argument('--script', dest='scriptfile',  action='store',
@@ -106,7 +111,7 @@ def parse_cmdline(boards):
     parser.add_argument('--fdt', dest='dtbfile',  action='store',
                         help="dtb file to load")
     parser.add_argument('--ramfs', dest='ramfsfile',  action='store',
-                        help="dtb file to load")
+                        help="ramfs file to load")
 
     args = parser.parse_args()
 
@@ -116,12 +121,12 @@ if __name__ == '__main__':
     fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
     boards = list_boards(fpath)
     args = parse_cmdline(boards)
-    usb = BootUSB(args.board, fpath)
+    usb = BootUSB(args.board, fpath, args.upath)
 
     usb.load_uboot()
 
     if args.imagefile is not None:
-        usb.write_file(args.imagefile, usb.UBOOT_IMAGEADDR, large = 512, fill = True)
+        usb.write_file(args.imagefile, usb.UBOOT_IMAGEADDR, 512, True)
 
     if args.dtbfile is not None:
         usb.write_file(args.dtbfile, usb.UBOOT_DTBADDR)
@@ -130,6 +135,6 @@ if __name__ == '__main__':
         usb.write_file(args.scriptfile, usb.UBOOT_SCRIPTADDR)
 
     if args.ramfsfile is not None:
-        usb.write_file(args.ramfsfile, usb.UBOOT_INITRDADDR, large = 512, fill = True)
+        usb.write_file(args.ramfsfile, usb.UBOOT_INITRDADDR, 512, True)
 
     usb.run_uboot()

@@ -6,8 +6,6 @@ The protocol reverse engineering can be found in the [PROTOCOL.md](PROTOCOL.md) 
 
 A library `pyamlboot` provides all the calls provided by the USB protocol, and the `boot.py` permit booting from the SoC ROM in USB Boot mode.
 
-On amlogic software release, their U-Boot version re-implements the same protocol, thus `boot.py` cannot be used in this stage, but the protocol permit running any U-Boot commands, but this is not yet implemented.
-
 ## Running U-Boot from USB Boot Mode
 
 - Take a Libretech-CC board
@@ -116,7 +114,7 @@ Hit any key to stop autoboot:  0
 
 Copy the files :
 - Image
-- `meson-gxl-s905x-libretech-cc.dtb` as `libretech-cc.dtb`, or `meson-gxl-s905x-khadas-vim.dtb` into `khadas-vim.dtb`
+- `meson-gxl-s905x-libretech-cc.dtb` or `meson-gxl-s905x-khadas-vim.dtb`
 - A cpio initramfs in uboot format as `rootfs.cpio.uboot`
 - Eventually change `boot.cmd` to add more commands before booting linux
 
@@ -129,7 +127,7 @@ mkimage -C none -A arm -T script -d boot.cmd boot.scr
 Then :
 
 ```
-sudo ./boot.py
+sudo ./boot.py --image Image --fdt meson-gxl-s905x-libretech-cc.dtb --ramfs rootfs.cpio.uboot --script boot.scr libretech-cc
 ```
 
 And you will see on the Host :
