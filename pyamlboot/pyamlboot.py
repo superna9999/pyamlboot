@@ -46,6 +46,8 @@ REQ_NOP = 0x36
 
 FLAG_KEEP_POWER_ON = 0x10
 
+MAX_LARGE_BLOCK_COUNT = 65535
+
 class AmlogicSoC(object):
     """Represents an Amlogic SoC in USB boot Mode"""
 
@@ -95,7 +97,7 @@ class AmlogicSoC(object):
                                      wIndex = address & 0xffff,
                                      data_or_wLength = length)
 
-        return ret
+        return ''.join(map(chr,ret))
 
     def readMemory(self, address, length):
         """Read some data from memory"""
@@ -177,8 +179,7 @@ class AmlogicSoC(object):
     # writeAux
     # readAux
 
-    def writeLargeMemory(self, address, data, blockLength=64, appendZeros=False):
-        """Write some data to memory, for large transfers with a programmable block length"""
+    def _writeLargeMemory(self, address, data, blockLength=64, appendZeros=False):
         if appendZeros:
             append = len(data) % blockLength
             data = data + pack('b', 0) * append
@@ -186,6 +187,8 @@ class AmlogicSoC(object):
             raise ValueError('Large Data must be a multiple of block length')
 
         blockCount = int(len(data) / blockLength)
+        if len(data) % blockLength > 0:
+            blockCount = blockCount + 1
         controlData = pack('<IIII', address, len(data), 0, 0)
 
         offset = 0
@@ -207,11 +210,31 @@ class AmlogicSoC(object):
                                data_or_wLength = controlData)
 
         while blockCount > 0:
-            ep.write(data[offset:offset+blockLength], 100)
+            ep.write(data[offset:offset+blockLength], 1000)
             offset = offset + blockLength
             blockCount = blockCount - 1
 
-    def readLargeMemory(self, address, length, blockLength=64, appendZeros=False):
+    def writeLargeMemory(self, address, data, blockLength=64, appendZeros=False):
+        """Write some data to memory, for large transfers with a programmable block length"""
+        blockCount = int(len(data) / blockLength)
+        if len(data) % blockLength > 0:
+            blockCount = blockCount + 1
+        transferCount = int(blockCount / MAX_LARGE_BLOCK_COUNT)
+        if blockCount % MAX_LARGE_BLOCK_COUNT > 0:
+            transferCount = transferCount + 1
+        offset = 0
+
+        while transferCount > 0:
+            if (offset + (MAX_LARGE_BLOCK_COUNT * blockLength)) > len(data):
+                writeLength = len(data) - offset
+            else:
+                writeLength = (MAX_LARGE_BLOCK_COUNT * blockLength)
+            self._writeLargeMemory(address+offset, data[offset:offset+writeLength], \
+                                   blockLength, appendZeros)
+            offset = offset + writeLength
+            transferCount = transferCount - 1
+
+    def _readLargeMemory(self, address, length, blockLength=64, appendZeros=False):
         """Read some data from memory, for large transfers with a programmable block length"""
         if appendZeros:
             length = length + (length % blockLength)
@@ -219,6 +242,8 @@ class AmlogicSoC(object):
             raise ValueError('Large Data must be a multiple of block length')
 
         blockCount = int(length / blockLength)
+        if length % blockLength > 0:
+            blockCount = blockCount + 1
         controlData = pack('<IIII', address, length, 0, 0)
         data = ''
 
@@ -241,6 +266,29 @@ class AmlogicSoC(object):
         while blockCount > 0:
             data = data + ''.join(map(chr,ep.read(blockLength, 100)))
             blockCount = blockCount - 1
+
+        return data
+
+    def readLargeMemory(self, address, length, blockLength=64, appendZeros=False):
+        """Read some data from memory, for large transfers with a programmable block length"""
+        blockCount = int(length / blockLength)
+        if length % blockLength > 0:
+            blockCount = blockCount + 1
+        transferCount = int(blockCount / MAX_LARGE_BLOCK_COUNT)
+        if blockCount % MAX_LARGE_BLOCK_COUNT > 0:
+            transferCount = transferCount + 1
+        offset = 0
+        data = ''
+
+        while transferCount > 0:
+            if (offset + (MAX_LARGE_BLOCK_COUNT * blockLength)) > length:
+                readLength = length - offset
+            else:
+                readLength = (MAX_LARGE_BLOCK_COUNT * blockLength)
+            data = data + self._readLargeMemory(address+offset, readLength, \
+                                                blockLength, appendZeros)
+            offset = offset + readLength
+            transferCount = transferCount - 1
 
         return data
 
