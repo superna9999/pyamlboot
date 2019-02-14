@@ -23,7 +23,7 @@ if __name__ == '__main__':
     print("Writing uImage...")
     with open(sys.argv[1], "rb") as f:
             b = f.read()
-    dev.writeLargeMemory(UBOOT_IMAGEADDR, b, 64, True)
+    dev.writeLargeMemory(UBOOT_IMAGEADDR, b, 512, True)
 
     print("Writing dtb...")
     with open(sys.argv[2], "rb") as f:
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     print("Writing rootfs...")
     with open(sys.argv[3], "rb") as f:
             b = f.read()
-    dev.writeLargeMemory(UBOOT_INITRDADDR, b, 32, True)
+    dev.writeLargeMemory(UBOOT_INITRDADDR, b, 512, True)
 
     print("Running bootm...")
     dev.tplCommand(1, "setenv bootargs %s ; bootm 0x%x 0x%x 0x%x" % (sys.argv[4], UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
