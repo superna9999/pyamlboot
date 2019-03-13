@@ -42,7 +42,7 @@ class BootUSB:
         if upath:
             self.bpath = upath
         else:
-            self.bpath = os.path.join(upath, board)
+            self.bpath = os.path.join(fpath, board)
 
     def wait(self, t):
         print("Waiting...");
