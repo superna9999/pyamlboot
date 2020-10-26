@@ -97,20 +97,20 @@ class AmlogicSoC(object):
                                      wIndex = address & 0xffff,
                                      data_or_wLength = length)
 
-        return ''.join(map(chr,ret))
+        return ret
 
     def readMemory(self, address, length):
         """Read some data from memory"""
-        data = ''
+        data = []
         offset = 0
 
         while length:
             if length >= 64:
-                data = data + self.readSimpleMemory(address + offset, 64)
+                data = data.append(self.readSimpleMemory(address + offset, 64))
                 length = length - 64
                 offset = offset + 64
             else:
-                data = data + self.readSimpleMemory(address + offset, length)
+                data = data.append(self.readSimpleMemory(address + offset, length))
                 break
 
         return data
@@ -129,7 +129,7 @@ class AmlogicSoC(object):
     def readReg(self, address):
         """Read value at address"""
         reg = self.readSimpleMemory(address, 4)
-        return unpack('<I', reg)[0]
+        return int.from_bytes(reg, byteorder='little')
 
     def writeReg(self, address, value):
         """UNTESTED: Write value at address"""
@@ -245,7 +245,7 @@ class AmlogicSoC(object):
         if length % blockLength > 0:
             blockCount = blockCount + 1
         controlData = pack('<IIII', address, length, 0, 0)
-        data = ''
+        data = []
 
         cfg = self.dev.get_active_configuration()
         intf = cfg[(0,0)]
@@ -264,7 +264,7 @@ class AmlogicSoC(object):
                                data_or_wLength = controlData)
 
         while blockCount > 0:
-            data = data + ''.join(map(chr,ep.read(blockLength, 100)))
+            data = data.append(ep.read(blockLength, 100))
             blockCount = blockCount - 1
 
         return data
@@ -278,15 +278,15 @@ class AmlogicSoC(object):
         if blockCount % MAX_LARGE_BLOCK_COUNT > 0:
             transferCount = transferCount + 1
         offset = 0
-        data = ''
+        data = []
 
         while transferCount > 0:
             if (offset + (MAX_LARGE_BLOCK_COUNT * blockLength)) > length:
                 readLength = length - offset
             else:
                 readLength = (MAX_LARGE_BLOCK_COUNT * blockLength)
-            data = data + self._readLargeMemory(address+offset, readLength, \
-                                                blockLength, appendZeros)
+            data = data.append(self._readLargeMemory(address+offset, readLength, \
+                                                blockLength, appendZeros))
             offset = offset + readLength
             transferCount = transferCount - 1
 
