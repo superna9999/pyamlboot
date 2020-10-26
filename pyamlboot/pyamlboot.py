@@ -44,7 +44,14 @@ REQ_TPL_STAT = 0x31
 REQ_PASSWORD = 0x35
 REQ_NOP = 0x36
 
+REQ_GET_AMLC = 0x50
+REQ_WRITE_AMLC = 0x60
+
 FLAG_KEEP_POWER_ON = 0x10
+
+AMLC_AMLS_BLOCK_LENGTH = 0x200
+AMLC_MAX_BLOCK_LENGTH = 0x4000
+AMLC_MAX_TRANSFERT_LENGTH = 65536
 
 MAX_LARGE_BLOCK_COUNT = 65535
 
@@ -325,3 +332,131 @@ class AmlogicSoC(object):
                                bRequest = REQ_NOP,
                                wValue = 0, wIndex = 0,
                                data_or_wLength = None)
+
+    def getBootAMLC(self):
+        """Read BL2 Boot AMLC Data Request"""
+
+        cfg = self.dev.get_active_configuration()
+        intf = cfg[(0,0)]
+        epout = usb.util.find_descriptor(
+                        intf,
+                        # match the first OUT endpoint
+                        custom_match = \
+                        lambda e: \
+                        usb.util.endpoint_direction(e.bEndpointAddress) == \
+                        usb.util.ENDPOINT_OUT)
+        epin = usb.util.find_descriptor(
+                        intf,
+                        # match the first OUT endpoint
+                        custom_match = \
+                        lambda e: \
+                        usb.util.endpoint_direction(e.bEndpointAddress) == \
+                        usb.util.ENDPOINT_IN)
+
+        self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_GET_AMLC,
+                               wValue = AMLC_AMLS_BLOCK_LENGTH,
+                               wIndex = 0,
+                               data_or_wLength = None)
+
+        data = epin.read(AMLC_AMLS_BLOCK_LENGTH, 100)
+        (tag, length, offset) = unpack('<4s4xII', data[0:16])
+
+        if not "AMLC" in ''.join(map(chr,tag)):
+            raise ValueError('Invalid AMLC Request %s' % tag)
+
+        # Ack the request
+        okay = pack('<4sIII', bytes("OKAY", 'ascii'), 0, 0, 0)
+        epout.write(okay, 1000)
+
+        return (length, offset)
+
+    def _writeAMLCData(self, offset, data):
+        """Write AMLC data block, or final AMLS"""
+        dataOffset = 0
+        writeLength = len(data)
+        blockCount = int(writeLength / AMLC_MAX_BLOCK_LENGTH)
+        if len(data) % AMLC_MAX_BLOCK_LENGTH > 0:
+            blockCount = blockCount + 1
+
+        cfg = self.dev.get_active_configuration()
+        intf = cfg[(0,0)]
+        epout = usb.util.find_descriptor(
+                        intf,
+                        # match the first OUT endpoint
+                        custom_match = \
+                        lambda e: \
+                        usb.util.endpoint_direction(e.bEndpointAddress) == \
+                        usb.util.ENDPOINT_OUT)
+        epin = usb.util.find_descriptor(
+                        intf,
+                        # match the first OUT endpoint
+                        custom_match = \
+                        lambda e: \
+                        usb.util.endpoint_direction(e.bEndpointAddress) == \
+                        usb.util.ENDPOINT_IN)
+
+        self.dev.ctrl_transfer(bmRequestType = 0x40,
+                               bRequest = REQ_WRITE_AMLC,
+                               wValue = int(offset / AMLC_AMLS_BLOCK_LENGTH),
+                               wIndex = writeLength - 1,
+                               data_or_wLength = None)
+
+        while blockCount > 0:
+            remain = writeLength - dataOffset
+            if remain > AMLC_MAX_BLOCK_LENGTH:
+                blockLength = AMLC_MAX_BLOCK_LENGTH
+            else:
+                blockLength = remain
+            epout.write(data[dataOffset:dataOffset+blockLength], 1000)
+            dataOffset = dataOffset + blockLength
+            blockCount = blockCount - 1
+
+        # Wait for Ack
+        data = epin.read(16, 1000)
+
+        if not "OKAY" in ''.join(map(chr,data[0:4])):
+            raise ValueError('Invalid AMLC Data Write Ack %s' % tag)
+
+    def _amlsChecksum(self, data):
+        """Calculate data checksum for AMLS"""
+        checksum = 0
+        offset = 0
+        uint32_max = (1 << 32)
+
+        while offset < len(data):
+            left = len(data) - offset
+            if left >= 4:
+                val = unpack('<I', data[offset:offset+4])[0]
+            elif val >= 3:
+                val = unpack('<I', data[offset:offset+4])[0] & 0xffffff
+            elif val >= 2:
+                val = unpack('<H', data[offset:offset+2])[0]
+            else:
+                val = unpack('<B', data[offset])[0]
+            offset = offset + 4
+            checksum = (checksum + abs(val)) % uint32_max
+
+        return checksum
+
+    def writeAMLCData(self, seq, amlcOffset, data):
+        """Write Request AMLC Data"""
+        dataLen = len(data)
+        transferCount = int(dataLen / AMLC_MAX_TRANSFERT_LENGTH)
+        if dataLen % AMLC_MAX_TRANSFERT_LENGTH > 0:
+            transferCount = transferCount + 1
+        offset = 0
+
+        while transferCount > 0:
+            if (offset + AMLC_MAX_TRANSFERT_LENGTH) > dataLen:
+                writeLength = dataLen - offset
+            else:
+                writeLength = AMLC_MAX_TRANSFERT_LENGTH
+            self._writeAMLCData(offset, data[offset:offset+writeLength])
+            offset = offset + writeLength
+            transferCount = transferCount - 1
+
+        # Write AMLS with checksum over full block, while transferring part of the first 512 bytes
+        checksum = self._amlsChecksum(data)
+        amls = pack('<4sBBBBII', bytes("AMLS", 'ascii'), seq, 0, 0, 0, checksum, 0) + data[16:512]
+        self._writeAMLCData(amlcOffset, amls)
