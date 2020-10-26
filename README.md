@@ -6,6 +6,49 @@ The protocol reverse engineering can be found in the [PROTOCOL.md](PROTOCOL.md) 
 
 A library `pyamlboot` provides all the calls provided by the USB protocol, and the `boot.py` permit booting from the SoC ROM in USB Boot mode.
 
+## S905X2/S905D2/S905X3/S905D3/A311D/S922X Protocol
+
+The G12A, G12B & SM1 uses a specific USB Boot protocol, implemented in the `boot-g12.py` tool.
+
+### Supported Boards
+
+- Odroid-C4, N2, N2+
+
+The Micro USB is used to communicate with the Boot ROM.
+
+Switch the N2 in eMMC mode, and remove eMMC & SDCard.
+Remove eMMC & SDCard of Odroid-C4.
+
+- Khadas VIM3/VIM3L
+
+The USB-C is used to power and communicate with the Boot ROM.
+
+Follow https://docs.khadas.com/vim3/HowtoBootIntoUpgradeMode.html#TST-Mode-Recommended
+
+### Command
+
+```
+usage: boot-g12.py [-h] [--version] binary
+
+USB boot tool for Amlogic G12 SoCs
+
+positional arguments:
+  binary         binary to load
+
+optional arguments:
+  -h, --help     show this help message and exit
+  --version, -v  show program's version number and exit
+```
+
+The G12 protocol doesn't permit loading Linux & a ROOTFS from memory, please setup U-Boot
+to load Linux & a ROOTFS by Ethernet or Fastboot via USB or Ethernet.
+
+```
+sudo ./boot-g12.py /path/to/u-boot.bin
+```
+
+The `u-boot.bin` is the file generate by the Amlogic Tools after the `mkboot` stage.
+
 ## S905X/S912/A113D Protocol
 
 The GXL, GXM & GXBB uses a specific USB Boot protocol, implemented in the `boot.py` tool.
