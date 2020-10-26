@@ -1,10 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from pyamlboot import pyamlboot
+import argparse
 import time
+from pyamlboot import pyamlboot
+
+def parse_cmdline():
+    parser = argparse.ArgumentParser(description="USB boot tool for Amlogic G12 SoCs",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--version', '-v', action='version', version='%(prog)s 0.1')
+    parser.add_argument('binary',  action='store',
+                        help="binary to load")
+    args = parser.parse_args()
+
+    return args
 
 if __name__ == '__main__':
+    args = parse_cmdline()
+
     dev = pyamlboot.AmlogicSoC()
 
     socid = dev.identify()
@@ -13,13 +26,12 @@ if __name__ == '__main__':
     print("ROM: %d.%d Stage: %d.%d" % (ord(socid[0]), ord(socid[1]), ord(socid[2]), ord(socid[3])))
     print("Need Password: %d Password OK: %d" % (ord(socid[4]), ord(socid[5])))
 
-    path = "g12b-u-boot.bin"
     loadAddr = 0xfffa0000
-    with open(path, "rb") as f:
+    with open(args.binary, "rb") as f:
         seq = 0
         data = f.read()
 
-        print("Writing %s at 0x%x..." % (path, loadAddr))
+        print("Writing %s at 0x%x..." % (args.binary, loadAddr))
         dev.writeLargeMemory(0xfffa0000, data[0:0x10000], 4096)
         print("[DONE]")
 
