@@ -363,7 +363,7 @@ class AmlogicSoC(object):
         (tag, length, offset) = unpack('<4s4xII', data[0:16])
 
         if not "AMLC" in ''.join(map(chr,tag)):
-            raise ValueError('Invalid AMLC Request %s' % tag)
+            raise ValueError('Invalid AMLC Request %s' % data[0:16])
 
         # Ack the request
         okay = pack('<4sIII', bytes("OKAY", 'ascii'), 0, 0, 0)
@@ -416,7 +416,7 @@ class AmlogicSoC(object):
         data = epin.read(16, 1000)
 
         if not "OKAY" in ''.join(map(chr,data[0:4])):
-            raise ValueError('Invalid AMLC Data Write Ack %s' % tag)
+            raise ValueError('Invalid AMLC Data Write Ack %s' % data)
 
     def _amlsChecksum(self, data):
         """Calculate data checksum for AMLS"""
@@ -428,9 +428,9 @@ class AmlogicSoC(object):
             left = len(data) - offset
             if left >= 4:
                 val = unpack('<I', data[offset:offset+4])[0]
-            elif val >= 3:
+            elif left >= 3:
                 val = unpack('<I', data[offset:offset+4])[0] & 0xffffff
-            elif val >= 2:
+            elif left >= 2:
                 val = unpack('<H', data[offset:offset+2])[0]
             else:
                 val = unpack('<B', data[offset])[0]
