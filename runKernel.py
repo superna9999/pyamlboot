@@ -30,11 +30,15 @@ if __name__ == '__main__':
             b = f.read()
     dev.writeMemory(UBOOT_DTBADDR, b)
 
-    print("Writing rootfs...")
-    with open(sys.argv[3], "rb") as f:
-            b = f.read()
-    dev.writeLargeMemory(UBOOT_INITRDADDR, b, 512, True)
+    if sys.argv[3] != "-":
+	    print("Writing rootfs...")
+	    with open(sys.argv[3], "rb") as f:
+		    b = f.read()
+	    dev.writeLargeMemory(UBOOT_INITRDADDR, b, 512, True)
 
     print("Running bootm...")
-    dev.tplCommand(1, "setenv bootargs %s ; bootm 0x%x 0x%x 0x%x" % (sys.argv[4], UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
+    if sys.argv[3] != "-":
+        dev.tplCommand(1, "setenv bootargs %s ; bootm 0x%x 0x%x 0x%x" % (sys.argv[4], UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
+    else:
+        dev.tplCommand(1, "setenv bootargs %s ; bootm 0x%x - 0x%x" % (sys.argv[4], UBOOT_IMAGEADDR, UBOOT_DTBADDR))
 
