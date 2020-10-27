@@ -7,7 +7,7 @@ import sys
 import os
 from pyamlboot import pyamlboot
 
-gx_boards = {"libretech-cc", "libretech-ac", "khadas-vim", "khadas-vim2", "odroid-c2", "nanopi-k2", "p212", "p230", "p231", "q200", "q201", "p281", "p241"}
+gx_boards = {"libretech-cc", "libretech-ac", "khadas-vim", "khadas-vim2", "odroid-c2", "nanopi-k2", "p212", "p230", "p231", "q200", "q201", "p281", "p241", "libretech-s912-pc", "libretech-s905d-pc"}
 axg_boards = {"s400", "s420", "apollo" }
 
 class BootUSB:
@@ -94,7 +94,7 @@ class BootUSB:
             self.run(self.DDR_LOAD)
 
 def list_boards(p):
-    return [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p, d)) ]
+    return [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p, d)) and (d in gx_boards or d in axg_boards) ]
 
 def parse_cmdline(boards):
     parser = argparse.ArgumentParser(description="USB boot tool for Amlogic",
