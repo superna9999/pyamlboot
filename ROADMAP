@@ -1,5 +1,3 @@
 pyamlboot roadmap :
 - Move defines from boot.by into yaml files
 - push to pypi (add setup.py and so on)
-- integrate with meta-meson, that could use a deploy/image dir to entirely boot from usb
-- add support for new socs (s905X/D2, S922, A311, ..)
