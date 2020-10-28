@@ -6,6 +6,26 @@ The protocol reverse engineering can be found in the [PROTOCOL.md](PROTOCOL.md) 
 
 A library `pyamlboot` provides all the calls provided by the USB protocol, and the `boot.py` permit booting from the SoC ROM in USB Boot mode.
 
+## Installation
+
+### From PyPi
+
+```
+pip3 install pyamlboot
+```
+
+### From GitHub master branch
+
+```
+pip3 install git+https://github.com/superna9999/pyamlboot
+```
+
+## For development
+
+```
+git clone https://github.com/superna9999/pyamlboot
+```
+
 ## S905X2/S905D2/S905X3/S905D3/A311D/S922X Protocol
 
 The G12A, G12B & SM1 uses a specific USB Boot protocol, implemented in the `boot-g12.py` tool.
