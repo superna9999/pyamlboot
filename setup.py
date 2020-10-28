@@ -5,7 +5,7 @@ import setuptools
 files = ["../files/*", "../files/*/*"]
 
 setuptools.setup(name="pyamlboot",
-    version="1.0",
+    version="1.0.0",
     author="Neil Armstrong",
     author_email='superna9999@gmail.com',
     description="Amlogic SoC USB Boot utility",
