@@ -8,7 +8,7 @@ from pyamlboot import pyamlboot
 def parse_cmdline():
     parser = argparse.ArgumentParser(description="USB boot tool for Amlogic G12 SoCs",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--version', '-v', action='version', version='%(prog)s 0.1')
+    parser.add_argument('--version', '-v', action='version', version='%(prog)s 1.0')
     parser.add_argument('binary',  action='store',
                         help="binary to load")
     args = parser.parse_args()

@@ -5,6 +5,7 @@ import argparse
 import time
 import sys
 import os
+import pkg_resources
 from pyamlboot import pyamlboot
 
 gx_boards = {"libretech-cc", "libretech-ac", "khadas-vim", "khadas-vim2", "odroid-c2", "nanopi-k2", "p212", "p230", "p231", "q200", "q201", "p281", "p241", "libretech-s912-pc", "libretech-s905d-pc"}
@@ -99,7 +100,7 @@ def list_boards(p):
 def parse_cmdline(boards):
     parser = argparse.ArgumentParser(description="USB boot tool for Amlogic",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--version', '-v', action='version', version='%(prog)s 0.1')
+    parser.add_argument('--version', '-v', action='version', version='%(prog)s 1.0')
     parser.add_argument('board',  action='store', choices=boards,
                         help="board type to boot on")
     parser.add_argument('--board-files', dest='upath',  action='store',
@@ -118,7 +119,12 @@ def parse_cmdline(boards):
     return args
 
 if __name__ == '__main__':
-    fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
+    # Try to get boot files from the python package, or from local tree
+    try:
+        dist = pkg_resources.get_distribution('pyamlboot')
+        fpath = dist.get_resource_filename(pkg_resources.ResourceManager(), "files")
+    except:
+        fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
     boards = list_boards(fpath)
     args = parse_cmdline(boards)
     usb = BootUSB(args.board, fpath, args.upath)

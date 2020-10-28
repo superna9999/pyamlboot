@@ -1,0 +1,2 @@
+include README.md LICENSE PROTOCOL.md
+recursive-include files *
