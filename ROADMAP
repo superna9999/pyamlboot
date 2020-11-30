@@ -1,3 +1,2 @@
 pyamlboot roadmap :
 - Move defines from boot.by into yaml files
-- push to pypi (add setup.py and so on)
