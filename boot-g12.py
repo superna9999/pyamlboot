@@ -3,20 +3,39 @@
 
 import argparse
 import time
+import os
+import pkg_resources
 from pyamlboot import pyamlboot
 
-def parse_cmdline():
+def list_boards(p):
+    return [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p, d)) and os.path.isfile(os.path.join(p, d, "u-boot.bin")) ]
+
+def parse_cmdline(fpath):
+    boards = list_boards(fpath)
     parser = argparse.ArgumentParser(description="USB boot tool for Amlogic G12 SoCs",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--version', '-v', action='version', version='%(prog)s 1.0')
     parser.add_argument('binary',  action='store',
-                        help="binary to load")
+                        help="binary to load or name of board")
+    parser.add_argument('--board-name', '-b', dest='bname',  action='store_true',
+                        help="main argument becomes the name of the board to load (%s)" % boards)
     args = parser.parse_args()
 
     return args
 
 if __name__ == '__main__':
-    args = parse_cmdline()
+    try:
+        dist = pkg_resources.get_distribution('pyamlboot')
+        fpath = os.path.join(dist.get_resource_filename(pkg_resources.ResourceManager(), "files")) 
+    except:
+        fpath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
+
+    args = parse_cmdline(fpath)
+
+    if args.bname:
+        bpath = os.path.join(fpath, args.binary, "u-boot.bin")
+    else:
+        bpath = args.binary
 
     dev = pyamlboot.AmlogicSoC()
 
@@ -27,11 +46,11 @@ if __name__ == '__main__':
     print("Need Password: %d Password OK: %d" % (ord(socid[4]), ord(socid[5])))
 
     loadAddr = 0xfffa0000
-    with open(args.binary, "rb") as f:
+    with open(bpath, "rb") as f:
         seq = 0
         data = f.read()
 
-        print("Writing %s at 0x%x..." % (args.binary, loadAddr))
+        print("Writing %s at 0x%x..." % (bpath, loadAddr))
         dev.writeLargeMemory(0xfffa0000, data[0:0x10000], 4096)
         print("[DONE]")
 
