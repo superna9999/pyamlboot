@@ -28,7 +28,7 @@ if __name__ == '__main__':
     print("Writing dtb...")
     with open(sys.argv[2], "rb") as f:
             b = f.read()
-    dev.writeMemory(UBOOT_DTBADDR, b)
+    dev.writeLargeMemory(UBOOT_DTBADDR, b, 512, True)
 
     if sys.argv[3] != "-":
 	    print("Writing rootfs...")
