@@ -314,7 +314,7 @@ class AmlogicSoC(object):
         self.dev.ctrl_transfer(bmRequestType = 0x40,
                                bRequest = REQ_TPL_CMD,
                                wValue = 0, wIndex = subcode,
-                               data_or_wLength = command)
+                               data_or_wLength = command + '\0')
 
     # tplStat
 
