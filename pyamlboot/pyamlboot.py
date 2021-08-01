@@ -41,6 +41,8 @@ REQ_IDENTIFY_HOST = 0x20
 REQ_TPL_CMD    = 0x30
 REQ_TPL_STAT = 0x31
 
+REQ_BULKCMD = 0x34
+
 REQ_PASSWORD = 0x35
 REQ_NOP = 0x36
 
@@ -460,3 +462,23 @@ class AmlogicSoC(object):
         checksum = self._amlsChecksum(data)
         amls = pack('<4sBBBBII', bytes("AMLS", 'ascii'), seq, 0, 0, 0, checksum, 0) + data[16:512]
         self._writeAMLCData(amlcOffset, amls)
+
+    def bulkCmd(self, command):
+        """Send a textual command
+
+        When talking to U-Boot's implementation of this protocol, execute the
+        given string as a U-Boot command. Not supported by other
+        implementations, including the ROM one, to my knowledge.
+        """
+        request_type = usb.util.build_request_type(usb.util.CTRL_OUT,
+                                                   usb.util.CTRL_TYPE_VENDOR,
+                                                   usb.util.CTRL_RECIPIENT_DEVICE)
+
+        self.dev.ctrl_transfer(bmRequestType = request_type,
+                               bRequest = REQ_BULKCMD,
+                               wValue = 0, # Ignored
+                               wIndex = 2, # Ignored
+                               data_or_wLength = command + '\0')
+
+        BULK_REPLY_LEN = 512
+        return self.dev.read(usb.util.ENDPOINT_IN | 1, BULK_REPLY_LEN)
