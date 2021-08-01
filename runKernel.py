@@ -25,7 +25,7 @@ if __name__ == '__main__':
         description="Boot a kernel via Amlogic U-Boot's USB loader mode.")
     parser.add_argument(
         "kernel", type=FileNoStdin,
-        help="kernel image to boot, in uImage format")
+        help="kernel image to boot as uImage or Image/zImage, depending on -p")
     parser.add_argument(
         "dtb", type=FileNoStdin,
         help="device tree blob to pass to kernel")
@@ -35,6 +35,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "cmdline", nargs='?', default="",
         help="command line arguments to pass to the kernel")
+    parser.add_argument(
+        "-p", "--plain-image", action="store_true",
+        help="expect a Image/zImage instead of a uImage (which is the default)")
 
     args = parser.parse_args()
 
@@ -50,8 +53,13 @@ if __name__ == '__main__':
         print("Writing ramdisk...")
         dev.writeLargeMemory(UBOOT_INITRDADDR, args.ramdisk.read(), 512, True)
 
-    print("Running bootm...")
-    if args.ramdisk is not None:
-        dev.tplCommand(1, "setenv bootargs %s ; bootm 0x%x 0x%x 0x%x" % (args.cmdline, UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
+    if args.plain_image:
+        bootcmd = "booti"
     else:
-        dev.tplCommand(1, "setenv bootargs %s ; bootm 0x%x - 0x%x" % (args.cmdline, UBOOT_IMAGEADDR, UBOOT_DTBADDR))
+        bootcmd = "bootm"
+
+    print("Running %s..." % (bootcmd,))
+    if args.ramdisk is not None:
+        dev.tplCommand(1, "setenv bootargs %s ; %s 0x%x 0x%x 0x%x" % (args.cmdline, bootcmd, UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
+    else:
+        dev.tplCommand(1, "setenv bootargs %s ; %s 0x%x - 0x%x" % (args.cmdline, bootcmd, UBOOT_IMAGEADDR, UBOOT_DTBADDR))
