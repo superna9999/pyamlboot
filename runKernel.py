@@ -58,8 +58,11 @@ if __name__ == '__main__':
     else:
         bootcmd = "bootm"
 
+    print("Setting bootargs...")
+    dev.tplCommand(1, "setenv bootargs " + args.cmdline)
+
     print("Running %s..." % (bootcmd,))
     if args.ramdisk is not None:
-        dev.tplCommand(1, "setenv bootargs %s ; %s 0x%x 0x%x 0x%x" % (args.cmdline, bootcmd, UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
+        dev.tplCommand(1, "%s 0x%x 0x%x 0x%x" % (bootcmd, UBOOT_IMAGEADDR, UBOOT_INITRDADDR, UBOOT_DTBADDR))
     else:
-        dev.tplCommand(1, "setenv bootargs %s ; %s 0x%x - 0x%x" % (args.cmdline, bootcmd, UBOOT_IMAGEADDR, UBOOT_DTBADDR))
+        dev.tplCommand(1, "%s 0x%x - 0x%x" % (bootcmd, UBOOT_IMAGEADDR, UBOOT_DTBADDR))
