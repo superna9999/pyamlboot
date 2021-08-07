@@ -38,6 +38,9 @@ if __name__ == '__main__':
     parser.add_argument(
         "-p", "--plain-image", action="store_true",
         help="expect a Image/zImage instead of a uImage (which is the default)")
+    parser.add_argument(
+        "-n", "--no-escape", action="store_true",
+        help="don't shell-escape the command line when sending it to U-Boot")
 
     args = parser.parse_args()
 
@@ -58,8 +61,21 @@ if __name__ == '__main__':
     else:
         bootcmd = "bootm"
 
+    if args.no_escape:
+        cmdline = args.cmdline
+    else:
+        # Roll our own escaping since U-Boot's hush is nonstandard enough that
+        # shlex.quote() doesn't quite work right. Specifically, U-Boot removes
+        # non-double backslashes from all strings, even single-quoted ones. But
+        # it still doesn't allow backslashed-escaped single quotes in single-
+        # quoted strings...
+        cmdline = "'%s'" % (
+            args.cmdline
+                .replace("\\", "\\\\")
+                .replace("'", "'\\''"),)
+
     print("Setting bootargs...")
-    dev.tplCommand(1, "setenv bootargs " + args.cmdline)
+    dev.tplCommand(1, "setenv bootargs " + cmdline)
 
     print("Running %s..." % (bootcmd,))
     if args.ramdisk is not None:
