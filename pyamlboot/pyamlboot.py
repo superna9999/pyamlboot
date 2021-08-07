@@ -311,10 +311,17 @@ class AmlogicSoC(object):
         return ''.join([chr(x) for x in ret])
 
     def tplCommand(self, subcode, command):
+        terminated_cmd = command + '\0'
+
+        # U-Boot's USB function gets confused if the string is longer than this.
+        # Not sure why.
+        if len(terminated_cmd) >= 128:
+            raise ValueError("TPL command must be shorter than 127 characters")
+
         self.dev.ctrl_transfer(bmRequestType = 0x40,
                                bRequest = REQ_TPL_CMD,
                                wValue = 0, wIndex = subcode,
-                               data_or_wLength = command + '\0')
+                               data_or_wLength = terminated_cmd)
 
     # tplStat
 
@@ -473,6 +480,13 @@ class AmlogicSoC(object):
         request_type = usb.util.build_request_type(usb.util.CTRL_OUT,
                                                    usb.util.CTRL_TYPE_VENDOR,
                                                    usb.util.CTRL_RECIPIENT_DEVICE)
+
+        terminated_cmd = command + '\0'
+
+        # U-Boot's USB function gets confused if the string is longer than this.
+        # Not sure why.
+        if len(terminated_cmd) >= 128:
+            raise ValueError("Bulk command must be shorter than 127 characters")
 
         self.dev.ctrl_transfer(bmRequestType = request_type,
                                bRequest = REQ_BULKCMD,
