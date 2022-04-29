@@ -41,6 +41,9 @@ REQ_IDENTIFY_HOST = 0x20
 REQ_TPL_CMD    = 0x30
 REQ_TPL_STAT = 0x31
 
+REQ_WRITE_MEDIA = 0x32
+REQ_READ_MEDIA = 0x33
+
 REQ_BULKCMD = 0x34
 
 REQ_PASSWORD = 0x35
@@ -56,6 +59,10 @@ AMLC_MAX_BLOCK_LENGTH = 0x4000
 AMLC_MAX_TRANSFERT_LENGTH = 65536
 
 MAX_LARGE_BLOCK_COUNT = 65535
+
+WRITE_MEDIA_CHEKSUM_ALG_NONE = 0x00ee
+WRITE_MEDIA_CHEKSUM_ALG_ADDSUM = 0x00ef
+WRITE_MEDIA_CHEKSUM_ALG_CRC32 = 0x00f0
 
 class AmlogicSoC(object):
     """Represents an Amlogic SoC in USB boot Mode"""
@@ -477,6 +484,76 @@ class AmlogicSoC(object):
         checksum = self._amlsChecksum(data)
         amls = pack('<4sBBBBII', bytes("AMLS", 'ascii'), seq, 0, 0, 0, checksum, 0) + data[16:512]
         self._writeAMLCData(amlcOffset, amls)
+
+    @staticmethod
+    def _endpoint_match_in(ep):
+        return usb.util.endpoint_direction(ep.bEndpointAddress) ==\
+               usb.util.ENDPOINT_IN
+
+    @staticmethod
+    def _endpoint_match_out(ep):
+        return usb.util.endpoint_direction(ep.bEndpointAddress) ==\
+               usb.util.ENDPOINT_OUT
+
+    def readMedia(self, size, timeout=None):
+        """Read data from storage
+
+        Before reading data, you need to specify:
+            - where to read (partitions, mem)
+            - type of reading data
+            - size of data
+        For that need to use Bulk command 'upload'
+        """
+        block_length = 0x1000
+        cfg = self.dev.get_active_configuration()
+        intf = cfg[(0, 0)]
+
+        epin = usb.util.find_descriptor(intf,
+                                        custom_match=self._endpoint_match_in)
+
+        controlData = pack('<IIII', 0, size, 0, 0)
+        blocks = (block_length + size - 1) // block_length
+
+        self.dev.ctrl_transfer(bmRequestType=0xc0,
+                               bRequest=REQ_READ_MEDIA,
+                               wValue=size,
+                               wIndex=blocks,
+                               data_or_wLength=controlData)
+
+        return epin.read(size, timeout=timeout).tobytes()
+
+    def writeMedia(self, data, ackLen=0x200, seq=0, retryTimes=0):
+        """Write data to storage
+
+        Before writing data, you need to specify:
+            - where to write (partitions, mem)
+            - type of written data
+            - size of data
+        For that need to use Bulk command 'download'
+        """
+        checksum = self._amlsChecksum(data)
+        cfg = self.dev.get_active_configuration()
+        intf = cfg[(0, 0)]
+
+        epout = usb.util.find_descriptor(intf,
+                                         custom_match=self._endpoint_match_out)
+
+        controlData = pack('<IIIIHH', retryTimes, len(data), seq, checksum,
+                           WRITE_MEDIA_CHEKSUM_ALG_ADDSUM, ackLen)
+        controlData = controlData.ljust(0x20, b'\x00')
+
+        self.dev.ctrl_transfer(bmRequestType=0x40,
+                               bRequest=REQ_WRITE_MEDIA,
+                               wValue=1,
+                               wIndex=0xffff,
+                               data_or_wLength=controlData)
+
+        nbytes = epout.write(data, 1000)
+        return nbytes == len(data)
+
+    def devRead(self, size, timeout=None):
+        """Read answer from USB"""
+        return self.dev.read(usb.util.ENDPOINT_IN | 1, size, timeout=timeout)
 
     def bulkCmd(self, command, read_status=True, timeout=None):
         """Send a textual command
