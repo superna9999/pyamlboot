@@ -438,7 +438,7 @@ class AmlogicSoC(object):
             if left >= 4:
                 val = unpack('<I', data[offset:offset+4])[0]
             elif left >= 3:
-                val = unpack('<I', data[offset:offset+4])[0] & 0xffffff
+                val = unpack('<I', data[offset:offset+4].ljust(4, b'\x00'))[0] & 0xffffff
             elif left >= 2:
                 val = unpack('<H', data[offset:offset+2])[0]
             else:
