@@ -110,7 +110,7 @@ class AmlogicSoC(object):
 
     def readMemory(self, address, length):
         """Read some data from memory"""
-        data = []
+        data = bytes()
         offset = 0
 
         while length:
@@ -119,7 +119,7 @@ class AmlogicSoC(object):
                 length = length - 64
                 offset = offset + 64
             else:
-                data = data.append(self.readSimpleMemory(address + offset, length))
+                data += self.readSimpleMemory(address + offset, length)
                 break
 
         return data
@@ -254,7 +254,7 @@ class AmlogicSoC(object):
         if length % blockLength > 0:
             blockCount = blockCount + 1
         controlData = pack('<IIII', address, length, 0, 0)
-        data = []
+        data = bytes()
 
         cfg = self.dev.get_active_configuration()
         intf = cfg[(0,0)]
@@ -273,7 +273,7 @@ class AmlogicSoC(object):
                                data_or_wLength = controlData)
 
         while blockCount > 0:
-            data = data.append(ep.read(blockLength, 100))
+            data += ep.read(blockLength, 100)
             blockCount = blockCount - 1
 
         return data
@@ -287,15 +287,15 @@ class AmlogicSoC(object):
         if blockCount % MAX_LARGE_BLOCK_COUNT > 0:
             transferCount = transferCount + 1
         offset = 0
-        data = []
+        data = bytes()
 
         while transferCount > 0:
             if (offset + (MAX_LARGE_BLOCK_COUNT * blockLength)) > length:
                 readLength = length - offset
             else:
                 readLength = (MAX_LARGE_BLOCK_COUNT * blockLength)
-            data = data.append(self._readLargeMemory(address+offset, readLength, \
-                                                blockLength, appendZeros))
+            data += self._readLargeMemory(address+offset, readLength, \
+                                                blockLength, appendZeros)
             offset = offset + readLength
             transferCount = transferCount - 1
 
