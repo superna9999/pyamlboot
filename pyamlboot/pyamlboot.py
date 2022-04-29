@@ -478,7 +478,7 @@ class AmlogicSoC(object):
         amls = pack('<4sBBBBII', bytes("AMLS", 'ascii'), seq, 0, 0, 0, checksum, 0) + data[16:512]
         self._writeAMLCData(amlcOffset, amls)
 
-    def bulkCmd(self, command):
+    def bulkCmd(self, command, read_status=True, timeout=None):
         """Send a textual command
 
         When talking to U-Boot's implementation of this protocol, execute the
@@ -502,5 +502,11 @@ class AmlogicSoC(object):
                                wIndex = 2, # Ignored
                                data_or_wLength = command + '\0')
 
+        if read_status:
+            return self.bulkCmdStat(timeout)
+
+    def bulkCmdStat(self, timeout=None):
+        """Read bulk command status"""
         BULK_REPLY_LEN = 512
-        return self.dev.read(usb.util.ENDPOINT_IN | 1, BULK_REPLY_LEN)
+        return self.dev.read(usb.util.ENDPOINT_IN | 1, BULK_REPLY_LEN,
+                             timeout=timeout)
