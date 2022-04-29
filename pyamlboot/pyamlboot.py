@@ -324,6 +324,13 @@ class AmlogicSoC(object):
                                data_or_wLength = terminated_cmd)
 
     # tplStat
+    def tplStat(self, timeout=None):
+        return self.dev.ctrl_transfer(bmRequestType=0xc0,
+                                      bRequest=REQ_TPL_STAT,
+                                      wValue=0,
+                                      wIndex=0,
+                                      data_or_wLength=0x40,
+                                      timeout=timeout)
 
     def sendPassword(self, password):
         """UNTESTED: Send password"""
