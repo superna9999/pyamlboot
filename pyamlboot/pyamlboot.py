@@ -333,10 +333,11 @@ class AmlogicSoC(object):
                                       timeout=timeout)
 
     def sendPassword(self, password):
-        """UNTESTED: Send password"""
-        if length != 64:
-            raise ValueError('Password size is 64bytes')
-        controlData = [ord(elem) for elem in password]
+        if isinstance(password, str):
+            controlData = [ord(elem) for elem in password]
+        else:
+            controlData = password
+
         self.dev.ctrl_transfer(bmRequestType = 0x40,
                                bRequest = REQ_PASSWORD,
                                wValue = 0, wIndex = 0,
