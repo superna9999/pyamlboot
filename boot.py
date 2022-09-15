@@ -72,15 +72,15 @@ class BootUSB:
 
     def init_ddr(self):
         self.soc_id()
-        self.write_file(os.path.join(self.bpath, self.BL2_FILE), self.DDR_LOAD)
-        self.write_file(os.path.join(self.fpath, self.DDR_FILE), self.BL2_PARAMS, large = 32)
-        self.run(self.DDR_LOAD)
-        self.wait(1)
-
-        self.soc_id()
-        if ord(self.socid[3]) == 8:
-            self.run(self.BL2_PARAMS)
+        while ord(self.socid[3]) == 0:
+            self.write_file(os.path.join(self.bpath, self.BL2_FILE), self.DDR_LOAD)
+            self.write_file(os.path.join(self.fpath, self.DDR_FILE), self.BL2_PARAMS, large = 32)
+            self.run(self.DDR_LOAD)
             self.wait(1)
+            self.soc_id()
+
+        self.run(self.BL2_PARAMS)
+        self.wait(1)
 
     def load_uboot(self):
         self.init_ddr()
