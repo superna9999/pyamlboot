@@ -1,3 +1,5 @@
+<!--- SPDX-License-Identifier: Apache-2.0 OR MIT -->
+
 # pyamlboot: Amlogic SoC USB Boot utility
 
 The Amlogic SoCs have a USB Boot mode setting itself in USB Gadget mode with a custom protocol.

@@ -1,5 +1,7 @@
 # Amlogic Boot USB Protocol
 
+<!--- SPDX-License-Identifier: Apache-2.0 OR MIT -->
+
 ## Descriptor
 
 ```
