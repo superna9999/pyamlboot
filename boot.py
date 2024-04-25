@@ -9,7 +9,7 @@ import os
 import pkg_resources
 from pyamlboot import pyamlboot
 
-gx_boards = {"libretech-cc", "libretech-ac", "khadas-vim", "khadas-vim2", "odroid-c2", "nanopi-k2", "p212", "p230", "p231", "q200", "q201", "p281", "p241", "libretech-s912-pc", "libretech-s905d-pc"}
+gx_boards = {"libretech-s905x-cc", "libretech-s805x-ac", "khadas-vim", "khadas-vim2", "odroid-c2", "nanopi-k2", "p212", "p230", "p231", "q200", "q201", "p281", "p241", "libretech-s912-pc", "libretech-s905d-pc"}
 axg_boards = {"s400", "s420", "apollo" }
 
 class BootUSB:
