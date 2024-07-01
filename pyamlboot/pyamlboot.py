@@ -29,6 +29,9 @@ REQ_IDENTIFY_HOST = 0x20
 REQ_TPL_CMD    = 0x30
 REQ_TPL_STAT = 0x31
 
+REQ_WRITE_MEDIA = 0x32
+REQ_READ_MEDIA = 0x33
+
 REQ_BULKCMD = 0x34
 
 REQ_PASSWORD = 0x35
@@ -45,13 +48,19 @@ AMLC_MAX_TRANSFERT_LENGTH = 65536
 
 MAX_LARGE_BLOCK_COUNT = 65535
 
+WRITE_MEDIA_CHEKSUM_ALG_NONE = 0x00ee
+WRITE_MEDIA_CHEKSUM_ALG_ADDSUM = 0x00ef
+WRITE_MEDIA_CHEKSUM_ALG_CRC32 = 0x00f0
+
 class AmlogicSoC(object):
     """Represents an Amlogic SoC in USB boot Mode"""
 
-    def __init__(self, idVendor=0x1b8e, idProduct=0xc003):
+    def __init__(self, idVendor=0x1b8e, idProduct=0xc003, usb_backend=None):
         """Init with vendor/product IDs"""
 
-        self.dev = usb.core.find(idVendor=idVendor, idProduct=idProduct)
+        self.dev = usb.core.find(idVendor=idVendor,
+                                 idProduct=idProduct,
+                                 backend=usb_backend)
 
         if self.dev is None:
             raise ValueError('Device not found')
@@ -98,7 +107,7 @@ class AmlogicSoC(object):
 
     def readMemory(self, address, length):
         """Read some data from memory"""
-        data = []
+        data = bytes()
         offset = 0
 
         while length:
@@ -107,7 +116,7 @@ class AmlogicSoC(object):
                 length = length - 64
                 offset = offset + 64
             else:
-                data = data.append(self.readSimpleMemory(address + offset, length))
+                data += self.readSimpleMemory(address + offset, length)
                 break
 
         return data
@@ -242,7 +251,7 @@ class AmlogicSoC(object):
         if length % blockLength > 0:
             blockCount = blockCount + 1
         controlData = pack('<IIII', address, length, 0, 0)
-        data = []
+        data = bytes()
 
         cfg = self.dev.get_active_configuration()
         intf = cfg[(0,0)]
@@ -261,7 +270,7 @@ class AmlogicSoC(object):
                                data_or_wLength = controlData)
 
         while blockCount > 0:
-            data = data.append(ep.read(blockLength, 100))
+            data += ep.read(blockLength, 100)
             blockCount = blockCount - 1
 
         return data
@@ -275,15 +284,15 @@ class AmlogicSoC(object):
         if blockCount % MAX_LARGE_BLOCK_COUNT > 0:
             transferCount = transferCount + 1
         offset = 0
-        data = []
+        data = bytes()
 
         while transferCount > 0:
             if (offset + (MAX_LARGE_BLOCK_COUNT * blockLength)) > length:
                 readLength = length - offset
             else:
                 readLength = (MAX_LARGE_BLOCK_COUNT * blockLength)
-            data = data.append(self._readLargeMemory(address+offset, readLength, \
-                                                blockLength, appendZeros))
+            data += self._readLargeMemory(address+offset, readLength, \
+                                                blockLength, appendZeros)
             offset = offset + readLength
             transferCount = transferCount - 1
 
@@ -312,12 +321,20 @@ class AmlogicSoC(object):
                                data_or_wLength = terminated_cmd)
 
     # tplStat
+    def tplStat(self, timeout=None):
+        return self.dev.ctrl_transfer(bmRequestType=0xc0,
+                                      bRequest=REQ_TPL_STAT,
+                                      wValue=0,
+                                      wIndex=0,
+                                      data_or_wLength=0x40,
+                                      timeout=timeout)
 
     def sendPassword(self, password):
-        """UNTESTED: Send password"""
-        if length != 64:
-            raise ValueError('Password size is 64bytes')
-        controlData = [ord(elem) for elem in password]
+        if isinstance(password, str):
+            controlData = [ord(elem) for elem in password]
+        else:
+            controlData = password
+
         self.dev.ctrl_transfer(bmRequestType = 0x40,
                                bRequest = REQ_PASSWORD,
                                wValue = 0, wIndex = 0,
@@ -426,7 +443,7 @@ class AmlogicSoC(object):
             if left >= 4:
                 val = unpack('<I', data[offset:offset+4])[0]
             elif left >= 3:
-                val = unpack('<I', data[offset:offset+4])[0] & 0xffffff
+                val = unpack('<I', data[offset:offset+4].ljust(4, b'\x00'))[0] & 0xffffff
             elif left >= 2:
                 val = unpack('<H', data[offset:offset+2])[0]
             else:
@@ -458,7 +475,77 @@ class AmlogicSoC(object):
         amls = pack('<4sBBBBII', bytes("AMLS", 'ascii'), seq, 0, 0, 0, checksum, 0) + data[16:512]
         self._writeAMLCData(amlcOffset, amls)
 
-    def bulkCmd(self, command):
+    @staticmethod
+    def _endpoint_match_in(ep):
+        return usb.util.endpoint_direction(ep.bEndpointAddress) ==\
+               usb.util.ENDPOINT_IN
+
+    @staticmethod
+    def _endpoint_match_out(ep):
+        return usb.util.endpoint_direction(ep.bEndpointAddress) ==\
+               usb.util.ENDPOINT_OUT
+
+    def readMedia(self, size, timeout=None):
+        """Read data from storage
+
+        Before reading data, you need to specify:
+            - where to read (partitions, mem)
+            - type of reading data
+            - size of data
+        For that need to use Bulk command 'upload'
+        """
+        block_length = 0x1000
+        cfg = self.dev.get_active_configuration()
+        intf = cfg[(0, 0)]
+
+        epin = usb.util.find_descriptor(intf,
+                                        custom_match=self._endpoint_match_in)
+
+        controlData = pack('<IIII', 0, size, 0, 0)
+        blocks = (block_length + size - 1) // block_length
+
+        self.dev.ctrl_transfer(bmRequestType=0xc0,
+                               bRequest=REQ_READ_MEDIA,
+                               wValue=size,
+                               wIndex=blocks,
+                               data_or_wLength=controlData)
+
+        return epin.read(size, timeout=timeout).tobytes()
+
+    def writeMedia(self, data, ackLen=0x200, seq=0, retryTimes=0):
+        """Write data to storage
+
+        Before writing data, you need to specify:
+            - where to write (partitions, mem)
+            - type of written data
+            - size of data
+        For that need to use Bulk command 'download'
+        """
+        checksum = self._amlsChecksum(data)
+        cfg = self.dev.get_active_configuration()
+        intf = cfg[(0, 0)]
+
+        epout = usb.util.find_descriptor(intf,
+                                         custom_match=self._endpoint_match_out)
+
+        controlData = pack('<IIIIHH', retryTimes, len(data), seq, checksum,
+                           WRITE_MEDIA_CHEKSUM_ALG_ADDSUM, ackLen)
+        controlData = controlData.ljust(0x20, b'\x00')
+
+        self.dev.ctrl_transfer(bmRequestType=0x40,
+                               bRequest=REQ_WRITE_MEDIA,
+                               wValue=1,
+                               wIndex=0xffff,
+                               data_or_wLength=controlData)
+
+        nbytes = epout.write(data, 1000)
+        return nbytes == len(data)
+
+    def devRead(self, size, timeout=None):
+        """Read answer from USB"""
+        return self.dev.read(usb.util.ENDPOINT_IN | 1, size, timeout=timeout)
+
+    def bulkCmd(self, command, read_status=True, timeout=None):
         """Send a textual command
 
         When talking to U-Boot's implementation of this protocol, execute the
@@ -482,5 +569,11 @@ class AmlogicSoC(object):
                                wIndex = 2, # Ignored
                                data_or_wLength = command + '\0')
 
+        if read_status:
+            return self.bulkCmdStat(timeout)
+
+    def bulkCmdStat(self, timeout=None):
+        """Read bulk command status"""
         BULK_REPLY_LEN = 512
-        return self.dev.read(usb.util.ENDPOINT_IN | 1, BULK_REPLY_LEN)
+        return self.dev.read(usb.util.ENDPOINT_IN | 1, BULK_REPLY_LEN,
+                             timeout=timeout)
