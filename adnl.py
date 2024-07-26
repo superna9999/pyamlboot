@@ -36,8 +36,13 @@ TPL_BURNSTEPS_1 = 0xC0041031
 TPL_BURNSTEPS_2 = 0xC0041032
 
 ADNL_ROM_STAGE = 0
+ADNL_SPL_STAGE = 8
 ADNL_TPL_STAGE = 16
-
+stages = {
+    ADNL_ROM_STAGE: "BootROM",
+    ADNL_SPL_STAGE: "BL2",
+    ADNL_TPL_STAGE: "U-Boot"
+}
 
 class CBW:
     def __init__(self, msg) -> None:
@@ -263,7 +268,14 @@ def run_bl2_stage(epout, epin, aml_img):
     # and enters USB gadget mode to continue ADNL burning process.
     logging.info('Running BL2 stage...')
 
-    send_cmd_identify(epout, epin)
+    # First, check that we are in SPL stage
+    stage = send_cmd_identify(epout, epin)
+    if stage != ADNL_SPL_STAGE:
+        raise RuntimeError(f'Stage:{stage} ({stages[stage]}). '
+                           'Seems, BL2 has not been booted yet. Probably, '
+                           'you are trying to boot for example the unsigned '
+                           'BL2 on securebooted device. '
+                           'Check your image, please')
 
     logging.info('Send burnsteps after BL2')
     send_burnsteps(epout, epin, BOOTROM_BURNSTEPS_3)
