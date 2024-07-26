@@ -9,6 +9,7 @@ Amlogic USB Boot Protocol Library
 """
 
 import string
+import time
 import os
 import usb.core
 import usb.util
@@ -52,15 +53,25 @@ WRITE_MEDIA_CHEKSUM_ALG_NONE = 0x00ee
 WRITE_MEDIA_CHEKSUM_ALG_ADDSUM = 0x00ef
 WRITE_MEDIA_CHEKSUM_ALG_CRC32 = 0x00f0
 
+
 class AmlogicSoC(object):
     """Represents an Amlogic SoC in USB boot Mode"""
 
-    def __init__(self, idVendor=0x1b8e, idProduct=0xc003, usb_backend=None):
+    def __init__(self, idVendor=0x1b8e, idProduct=0xc003, usb_backend=None,
+                 timeout=10):
         """Init with vendor/product IDs"""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            self.dev = usb.core.find(idVendor=idVendor,
+                                     idProduct=idProduct,
+                                     backend=usb_backend)
+            try:
+                self.identify()
+            except Exception:
+                self.dev = None
 
-        self.dev = usb.core.find(idVendor=idVendor,
-                                 idProduct=idProduct,
-                                 backend=usb_backend)
+            if self.dev is not None:
+                break
 
         if self.dev is None:
             raise ValueError('Device not found')
@@ -75,6 +86,13 @@ class AmlogicSoC(object):
                                wValue = address >> 16,
                                wIndex = address & 0xffff,
                                data_or_wLength = data)
+
+    def disposeDevice(self):
+        try:
+            usb.util.dispose_resources(self.dev)
+            self.dev = None
+        except Exception as e:
+            print("Can't release device. {0}".format(type(e).__name__))
 
     def writeMemory(self, address, data):
         """Write some data to memory"""

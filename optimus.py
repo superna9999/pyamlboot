@@ -93,15 +93,12 @@ class BurnStepBase:
         while True:
             try:
                 pyamlboot.AmlogicSoC(usb_backend=USB_BACKEND)
-            except Exception:
-                if not for_connect:
-                    break
-
-                if (time.time() - start_time) >= timeout:
-                    raise TimeoutError('Detect Device connect timeout')
-            else:
+            finally:
                 if for_connect:
                     break
+
+            if (time.time() - start_time) >= timeout:
+                raise TimeoutError('Detect Device connect timeout')
 
             time.sleep(0.5)
 
@@ -174,13 +171,10 @@ class BurnStepEraseBootloader(BurnStepBase):
         self._check_bulk_cmd('erase_bootloader')
         try:
             self._check_bulk_cmd('reset')
+            self._dev.disposeDevice()
         except Exception:
             pass
 
-        logging.info('Waiting for connect device after reset...')
-        self._wait_device(True)
-        self._wait_device()
-        logging.info('Device is connected')
         return True
 
 
@@ -513,12 +507,7 @@ class BurnStepDownloadUboot(BurnStepDownloadBase):
         socid = SocId(self._dev.identify())
         self._run()
 
-        self._wait_device(False)
-        self._wait_device()
-        time.sleep(5)
-
-        self._dev = pyamlboot.AmlogicSoC(usb_backend=USB_BACKEND)
-        socid = SocId(self._dev.identify())
+        self._dev.disposeDevice()
         return True
 
 
