@@ -76,6 +76,13 @@ class AmlogicSoC(object):
                                wIndex = address & 0xffff,
                                data_or_wLength = data)
 
+    def disposeDevice(self):
+        try:
+            usb.util.dispose_resources(self.dev)
+            self.dev = None
+        except Exception as e:
+            print("Can't release device. {0}".format(type(e).__name__))
+
     def writeMemory(self, address, data):
         """Write some data to memory"""
         length = len(data)
