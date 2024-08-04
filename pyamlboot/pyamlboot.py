@@ -10,6 +10,7 @@ Amlogic USB Boot Protocol Library
 
 import string
 import os
+import time
 import usb.core
 import usb.util
 from struct import Struct, unpack, pack
@@ -55,12 +56,22 @@ WRITE_MEDIA_CHEKSUM_ALG_CRC32 = 0x00f0
 class AmlogicSoC(object):
     """Represents an Amlogic SoC in USB boot Mode"""
 
-    def __init__(self, idVendor=0x1b8e, idProduct=0xc003, usb_backend=None):
+    def __init__(self, idVendor=0x1b8e, idProduct=0xc003, usb_backend=None, timeout=0):
         """Init with vendor/product IDs"""
 
-        self.dev = usb.core.find(idVendor=idVendor,
-                                 idProduct=idProduct,
-                                 backend=usb_backend)
+        start = time.time()
+        while True:
+            self.dev = usb.core.find(idVendor=idVendor,
+                                    idProduct=idProduct,
+                                    backend=usb_backend)
+
+            if self.dev is not None:
+                break
+
+            if timeout is not None and time.time() > start + timeout:
+                break
+
+            time.sleep(0.1)
 
         if self.dev is None:
             raise ValueError('Device not found')

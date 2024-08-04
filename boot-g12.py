@@ -11,6 +11,13 @@ from pyamlboot import pyamlboot
 def list_boards(p):
     return [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p, d)) and os.path.isfile(os.path.join(p, d, "u-boot.bin")) ]
 
+def parse_wait(value):
+    try:
+        value = float(value)
+    except:
+        value = None
+    return value
+
 def parse_cmdline(fpath):
     boards = list_boards(fpath)
     parser = argparse.ArgumentParser(description="USB boot tool for Amlogic G12 SoCs",
@@ -20,6 +27,8 @@ def parse_cmdline(fpath):
                         help="binary to load or name of board")
     parser.add_argument('--board-name', '-b', dest='bname',  action='store_true',
                         help="main argument becomes the name of the board to load (%s)" % boards)
+    parser.add_argument('--timeout', type=parse_wait, action='store', default=0,
+                        help="Timeout in seconds for device to enumerate")
     args = parser.parse_args()
 
     return args
@@ -38,7 +47,10 @@ if __name__ == '__main__':
     else:
         bpath = args.binary
 
-    dev = pyamlboot.AmlogicSoC()
+    if args.timeout is None or args.timeout > 0:
+        print("Waiting for device to enumerate...")
+
+    dev = pyamlboot.AmlogicSoC(timeout=args.timeout)
 
     socid = dev.identify()
 
