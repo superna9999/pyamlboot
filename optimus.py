@@ -292,7 +292,7 @@ class BurnStepDownloadBase(BurnStepBase):
                                    blockLength=len(params))
 
     def _check_para(self, magic):
-        data = self._dev.readLargeMemory(self._platform.bl2ParaAddr, 0x200)
+        data = self._dev.readLargeMemory(self._platform.bl2ParaAddr, 0x200, 0x200)
         para_magic = unpack('<I', data[:4])[0]
         if para_magic != magic:
             raise Exception(f'Fail read para: {para_magic:x}')
