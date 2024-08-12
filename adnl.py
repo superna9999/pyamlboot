@@ -247,10 +247,14 @@ def run_bootrom_stage(epout, epin, aml_img):
     if strmsg != ADNL_REPLY_OKAY:
         raise RuntimeError('Unexpected reply to "getvar:downloadsize"')
 
-    logging.info('Send download size for BL2')
-    # despite another size of image, send 00010000 as
-    # param - seems ROM code works only with this value.
-    send_cmd(epout, epin, 'download:00010000', ADNL_REPLY_DATA)
+    # Reply is null-terminated
+    bl2_size = int(msg.tobytes().split(b'\x00', 1)[0][4:], 0)
+
+    logging.info('Send download size:0x{:08x} for BL2'.format(bl2_size))
+    # Despite another size of image, send only part of whole image with the
+    # size, extracted by 'downloadsize' cmd - seems ROM code works only with
+    # this value.
+    send_cmd(epout, epin, 'download:{:08x}'.format(bl2_size), ADNL_REPLY_DATA)
 
     logging.info('Sending SPL image...')
     send_cmd(epout, epin, item.read())
