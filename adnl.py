@@ -79,26 +79,35 @@ def adnl_checksum(buf):
 
 
 def send_cmd(epout, epin, cmd, expected_res=ADNL_REPLY_OKAY):
+    '''
+    Any command reply looks like:
+        | header (4b) | payload |, where
+    * header is a kind of ack for cmd, with values: OKAY, FAIL, INFO or DATA
+    * payload depends on the cmd type
+    '''
     epout.write(cmd, USB_IO_TIMEOUT_MS)
     msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
 
     if len(msg) < 4:
         raise RuntimeError(f'Too short reply: {len(msg)}')
 
-    strmsg = adnl_get_prefix(msg)
+    header = adnl_get_prefix(msg)
 
-    if strmsg != expected_res:
-        raise RuntimeError(f'Unexpected reply: {strmsg}')
+    if header != expected_res:
+        raise RuntimeError(f'Unexpected reply:{header} to cmd:{cmd}')
+
+    return msg
 
 
 def send_cmd_identify(epout, epin):
-    epout.write('getvar:identify', USB_IO_TIMEOUT_MS)
-    msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-    strmsg = adnl_get_prefix(msg)
-
-    if strmsg != ADNL_REPLY_OKAY:
-        raise RuntimeError(f'Unexpected reply to "identify": {strmsg}')
-
+    '''
+    Identify command reply:
+    * msg[4]  - protocol type: 5 - ADNL, 3 - Optimus
+    * msg[5]  - minor version
+    * msg[7]  - stage of bootstrap, see stages dict
+    * msg[11] - pages map
+    '''
+    msg = send_cmd(epout, epin, 'getvar:identify')
     # extra checks for this type of command
     if msg[4] != 0x5:
         raise RuntimeError('Unexpected data in reply to "identify"')
@@ -110,13 +119,7 @@ def send_burnsteps(epout, epin, burnstep):
     send_cmd(epout, epin, 'setvar:burnsteps', ADNL_REPLY_DATA)
 
     # 'burnsteps' needs extra argument
-    epout.write(burnstep.to_bytes(4, 'little'), USB_IO_TIMEOUT_MS)
-    msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-    strmsg = adnl_get_prefix(msg)
-
-    if strmsg != ADNL_REPLY_OKAY:
-        raise RuntimeError(f'Unexpected reply to "burnsteps": {strmsg}')
-
+    send_cmd(epout, epin, burnstep.to_bytes(4, 'little'))
 
 def tpl_burn_partition(part_item, aml_img, epout, epin):
     part_name = part_item.sub_type()
@@ -125,12 +128,7 @@ def tpl_burn_partition(part_item, aml_img, epout, epin):
     # 'oem mwrite <partition size> normal store <partition name>'
     # Reply must be 'OKAY'.
     oem_cmd = f'oem mwrite 0x{part_item.size():x} normal store {part_name}'
-    epout.write(oem_cmd, USB_IO_TIMEOUT_MS)
-    msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-    strmsg = adnl_get_prefix(msg)
-
-    if strmsg != ADNL_REPLY_OKAY:
-        raise RuntimeError(f'Unexpected reply to "oem mwrite": {strmsg}')
+    send_cmd(epout, epin, oem_cmd)
 
     while True:
         # Partition is sent step by step, each step starts from
@@ -179,12 +177,11 @@ def tpl_burn_partition(part_item, aml_img, epout, epin):
             buf_offs += to_send
 
         bytes_sum = [(sum_res >> i) & 0xff for i in range(0, 32, 8)]
-        epout.write(bytes_sum, USB_IO_TIMEOUT_MS)
-        msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-        strmsg = adnl_get_prefix(msg)
 
-        if strmsg != ADNL_REPLY_OKAY:
-            raise RuntimeError('CRC error during tx')
+        try:
+            send_cmd(epout, epin, bytes_sum)
+        except RuntimeError as e:
+            raise RuntimeError('CRC error during tx') from e
 
     # get 'VERIFY' entry for this partition
     verify_item = aml_img.item_get('VERIFY', part_name)
@@ -215,8 +212,7 @@ def send_and_handle_cbw(epout, epin):
     # during SPL stage. Devices requests blocks of TPL image
     # using this structure.
     logging.info('Requesting CBW...')
-    epout.write('getvar:cbw', USB_IO_TIMEOUT_MS)
-    msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
+    msg = send_cmd(epout, epin, 'getvar:cbw')
 
     return CBW(msg)
 
@@ -240,12 +236,7 @@ def run_bootrom_stage(epout, epin, aml_img):
     send_burnsteps(epout, epin, BOOTROM_BURNSTEPS_1)
 
     # Preparing to send SPL (e.g. BL2)
-    epout.write('getvar:downloadsize', USB_IO_TIMEOUT_MS)
-    msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-    strmsg = adnl_get_prefix(msg)
-
-    if strmsg != ADNL_REPLY_OKAY:
-        raise RuntimeError('Unexpected reply to "getvar:downloadsize"')
+    msg = send_cmd(epout, epin, 'getvar:downloadsize')
 
     # Reply is null-terminated
     bl2_size = int(msg.tobytes().split(b'\x00', 1)[0][4:], 0)
@@ -303,41 +294,25 @@ def run_bl2_stage(epout, epin, aml_img):
 
         while size > 0:
             to_send = min(size, USB_BULK_SIZE)
-            epout.write(f'download:{to_send:08x}',
-                        USB_IO_TIMEOUT_MS)
+            send_cmd(epout, epin, f'download:{to_send:08x}', ADNL_REPLY_DATA)
 
-            msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-            strmsg = adnl_get_prefix(msg)
-
-            if strmsg != ADNL_REPLY_DATA:
-                raise RuntimeError('Unexpected reply to "download:"')
-
-            epout.write(buf[buf_offs:buf_offs + to_send], USB_IO_TIMEOUT_MS)
-
-            msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-            strmsg = adnl_get_prefix(msg)
-
-            if strmsg != ADNL_REPLY_OKAY:
-                raise RuntimeError('Unexpected reply to data tx')
+            try:
+                send_cmd(epout, epin, buf[buf_offs:buf_offs + to_send])
+            except RuntimeError as e:
+                raise RuntimeError('Data tx failed') from e
 
             cur_sum += adnl_checksum(buf[buf_offs:buf_offs + to_send])
             size -= to_send
             buf_offs += to_send
 
-        epout.write('setvar:checksum', USB_IO_TIMEOUT_MS)
-        msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-        strmsg = adnl_get_prefix(msg)
-
-        if strmsg != ADNL_REPLY_DATA:
-            raise RuntimeError('Unexpected reply to "setvar:checksum"')
+        send_cmd(epout, epin, 'setvar:checksum', ADNL_REPLY_DATA)
 
         bytes_sum = [(cur_sum >> i) & 0xff for i in range(0, 32, 8)]
-        epout.write(bytes_sum, USB_IO_TIMEOUT_MS)
-        msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-        strmsg = adnl_get_prefix(msg)
 
-        if strmsg != ADNL_REPLY_OKAY:
-            raise RuntimeError('CRC error during tx')
+        try:
+            send_cmd(epout, epin, bytes_sum)
+        except RuntimeError as e:
+            raise RuntimeError('CRC error during tx') from e
 
         logging.info('Sending CRC done')
 
