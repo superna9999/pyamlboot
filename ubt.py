@@ -13,7 +13,7 @@ from enum import Enum
 
 from adnl import do_adnl_burn
 from pyamlboot.amlimage import AmlImagePack
-from optimus import do_optimus_burn
+from pyamlboot.optimus import do_optimus_burn
 
 
 class WipeFormat(Enum):

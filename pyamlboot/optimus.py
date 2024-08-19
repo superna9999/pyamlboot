@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0 OR MIT
 # -*- coding: utf-8 -*-
+"""
+Amlogic Optimus firmware flash protocol Library
 
-__license__ = "GPL-2.0"
-__author__ = "Martin Kurbanov"
-__email__ = "mmkurbanov@salutedevices.com"
-__copyright__ = "Copyright (c) 2024, SaluteDevices"
-__version__ = '0.0.1'
+   Copyright (c) 2024, SaluteDevices
+   Copyright (c) 2024, JetHome
+
+@author: Martin Kurbanov <mmkurbanov@salutedevices.com>
+@author: Viacheslav Bocharov <adeep@lexina.in>
+"""
+
+import usb
 
 try:
     from pyamlboot.pyamlboot import pyamlboot
@@ -23,7 +28,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from struct import pack, unpack
 
-import usb_backend
+from . import usb_backend
 
 USB_BACKEND = usb_backend.get_backend()
 
