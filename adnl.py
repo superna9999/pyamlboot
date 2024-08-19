@@ -170,6 +170,15 @@ def get_chipinfo(epout, epin, page, offset=None, nbytes=None):
     return msg[offset : offset + nbytes]
 
 
+def adnl_get_feat(epout, epin):
+    """
+    FEAT is 4 bytes value, residing in 'chipinfo-1'-page. Sometimes FEAT is
+    printed out by bootROM or SPL into UART. This value consists of flags.
+    """
+    feat = get_chipinfo(epout, epin, 1, offset=0x24, nbytes=4)
+    return int.from_bytes(feat, "little")
+
+
 def send_burnsteps(epout, epin, burnstep):
     send_cmd(epout, epin, 'setvar:burnsteps', ADNL_REPLY_DATA)
 
