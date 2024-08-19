@@ -68,6 +68,20 @@ class Stage(IntEnum):
         return super().name
 
 
+class SocFamily(IntEnum):
+    """
+    Map of SoC Family name to numeric ID.
+    """
+    A1 = 0x2c
+    C1 = 0x30
+    SC2 = 0x32
+    C2 = 0x33
+    T5 = 0x34
+    T5D = 0x35
+    T7 = 0x36
+    S4 = 0x37
+
+
 class CBW:
     def __init__(self, msg) -> None:
         magic = msg[4:8].tobytes().decode()
@@ -177,6 +191,14 @@ def adnl_get_feat(epout, epin):
     """
     feat = get_chipinfo(epout, epin, 1, offset=0x24, nbytes=4)
     return int.from_bytes(feat, "little")
+
+
+def adnl_get_soc_family_id(epout, epin):
+    """
+    SoC Family is 4 byte value from 'chipinfo-1'-page.
+    """
+    soc_fid = get_chipinfo(epout, epin, 1, offset=0x4, nbytes=4)
+    return SocFamily(int.from_bytes(soc_fid, "little"))
 
 
 def send_burnsteps(epout, epin, burnstep):
