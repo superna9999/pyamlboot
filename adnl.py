@@ -82,6 +82,17 @@ class SocFamily(IntEnum):
     S4 = 0x37
 
 
+class FeatSecurebootMask(IntEnum):
+    """
+    Defines secureboot bit inside FEAT for different SoCs.
+    """
+    A1 = 0x1
+    C1 = 0x1
+    C2 = 0x1
+    T5 = 0x10
+    T5D = 0x10
+
+
 class CBW:
     def __init__(self, msg) -> None:
         magic = msg[4:8].tobytes().decode()
@@ -201,6 +212,24 @@ def adnl_get_soc_family_id(epout, epin):
     return SocFamily(int.from_bytes(soc_fid, "little"))
 
 
+def is_secureboot_enabled(epout, epin):
+    stage = send_cmd_identify(epout, epin)
+
+    if stage != Stage.ROM:
+        raise RuntimeError(
+            f"Non suitable stage:{stage.name} for 'secureboot' query"
+        )
+
+    feat = adnl_get_feat(epout, epin)
+    soc_fid = adnl_get_soc_family_id(epout, epin)
+    sb_mask = FeatSecurebootMask[soc_fid.name]
+
+    logging.info("SoC family '%s' (%#x): FEAT is %#x, secureboot mask:%#x",
+                 soc_fid.name, soc_fid, feat, sb_mask)
+
+    return feat & sb_mask
+
+
 def send_burnsteps(epout, epin, burnstep):
     send_cmd(epout, epin, 'setvar:burnsteps', ADNL_REPLY_DATA)
 
@@ -303,8 +332,14 @@ def send_and_handle_cbw(epout, epin):
     return CBW(msg)
 
 
-def run_bootrom_stage(epout, epin, aml_img):
-    item = aml_img.item_get('USB', 'DDR')
+def run_bootrom_stage(epout, epin, aml_img, has_secureboot):
+    (sub_type, boot_type) = (
+        ("DDR_ENC", "secure") if has_secureboot else ("DDR", "normal")
+    )
+
+    logging.info("Device's %s boot is in progress...", boot_type)
+
+    item = aml_img.item_get('USB', sub_type)
 
     logging.info('Running ROM stage...')
     # May be, sequence of commands below is not necessary,
@@ -343,7 +378,7 @@ def run_bootrom_stage(epout, epin, aml_img):
     send_cmd(epout, epin, 'boot')
 
 
-def run_bl2_stage(epout, epin, aml_img):
+def run_bl2_stage(epout, epin, aml_img, has_secureboot):
     # This stage writes to sticky register, then sends U-boot image
     # to the device and runs it. U-boot sees value in this sticky reg
     # and enters USB gadget mode to continue ADNL burning process.
@@ -361,7 +396,8 @@ def run_bl2_stage(epout, epin, aml_img):
     logging.info('Send burnsteps after BL2')
     send_burnsteps(epout, epin, BOOTROM_BURNSTEPS_3)
 
-    item = aml_img.item_get('USB', 'UBOOT')
+    sub_type = 'UBOOT_ENC' if has_secureboot else 'UBOOT'
+    item = aml_img.item_get('USB', sub_type)
 
     while True:
         # request cbw
@@ -500,8 +536,11 @@ def do_adnl_burn(reset, erase_code, aml_img):
 
     dev_addr_rom_stage = dev.address
     epout, epin = get_device_eps(dev)
-    run_bootrom_stage(epout, epin, aml_img)
-    run_bl2_stage(epout, epin, aml_img)
+
+    has_secureboot = is_secureboot_enabled(epout, epin)
+
+    run_bootrom_stage(epout, epin, aml_img, has_secureboot)
+    run_bl2_stage(epout, epin, aml_img, has_secureboot)
     run_tpl_stage(reset, erase_code, aml_img, dev_addr_rom_stage)
 
     logging.info('Done, amazing!')
