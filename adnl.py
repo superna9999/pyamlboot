@@ -139,6 +139,37 @@ def send_cmd_identify(epout, epin):
     return Stage(msg[7])
 
 
+def get_chipinfo(epout, epin, page, offset=None, nbytes=None):
+    """
+    Chipinfo is an information, consisting of several 'pages' with the size of
+    64 bytes. First 4 bytes represent particular 'page', e.g.:
+      * chipinfo-0: is index page (00: 58444E49 ... | 'X D N I')
+      * chipinfo-1: is chip page  (00: 50494843 ... | 'P I H C')
+      * chipinfo-3: is ROM page   (00: 564D4F52 ... | 'V M O R')
+
+    By default, function returns whole 'page', otherwise - the requested
+    'nbytes' from specified 'offset' inside the 'page'.
+    """
+    stage = send_cmd_identify(epout, epin)
+    if stage not in (Stage.ROM, Stage.SPL):
+        raise RuntimeError(f"chipinfo-{page} can't be queried from "
+                           f"stage:{stage.name}. Programmer error.")
+
+    if not 0 <= page <= 7:
+        raise RuntimeError(f"page index:{page} is out of range [0, 7]")
+
+    # Cut off header of reply msg
+    msg = send_cmd(epout, epin, f"getvar:getchipinfo-{page}")[4:]
+    if offset is None:
+        offset = 0
+    if nbytes is None:
+        nbytes = msg.buffer_info()[1]
+    if offset > 0 and offset + nbytes >= msg.buffer_info()[1]:
+        raise RuntimeError("Bad parameters: out of bound access")
+
+    return msg[offset : offset + nbytes]
+
+
 def send_burnsteps(epout, epin, burnstep):
     send_cmd(epout, epin, 'setvar:burnsteps', ADNL_REPLY_DATA)
 
