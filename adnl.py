@@ -11,6 +11,9 @@ __version__ = '0.0.1'
 import logging
 import time
 
+from enum import IntEnum
+from types import DynamicClassAttribute
+
 import usb.core
 import usb.util
 
@@ -35,14 +38,35 @@ TPL_BURNSTEPS_0 = 0xC0041030
 TPL_BURNSTEPS_1 = 0xC0041031
 TPL_BURNSTEPS_2 = 0xC0041032
 
-ADNL_ROM_STAGE = 0
-ADNL_SPL_STAGE = 8
-ADNL_TPL_STAGE = 16
-stages = {
-    ADNL_ROM_STAGE: "BootROM",
-    ADNL_SPL_STAGE: "BL2",
-    ADNL_TPL_STAGE: "U-Boot"
-}
+
+class Stage(IntEnum):
+    """
+    Enum with boot stages of Amlogic SoC.
+    """
+    ROM = 0
+    SPL = 8
+    TPL = 16
+
+    @DynamicClassAttribute
+    def name(self):
+        """
+        Method provides custom mapping between Enum member and
+        user-friendly name of the boot stage in terms of Amlogic.
+        """
+        name = {
+            self.ROM: "BootROM",
+            self.SPL: "BL2",
+            self.TPL: "U-Boot",
+        }.get(self)
+
+        if name:
+            return name
+
+        # If self (i.e. Enum member) is not found in the dict, then
+        # get() would return None by default. Hence return default name
+        # of Enum member in such case.
+        return super().name
+
 
 class CBW:
     def __init__(self, msg) -> None:
@@ -112,7 +136,7 @@ def send_cmd_identify(epout, epin):
     if msg[4] != 0x5:
         raise RuntimeError('Unexpected data in reply to "identify"')
 
-    return msg[7]
+    return Stage(msg[7])
 
 
 def send_burnsteps(epout, epin, burnstep):
@@ -265,12 +289,12 @@ def run_bl2_stage(epout, epin, aml_img):
 
     # First, check that we are in SPL stage
     stage = send_cmd_identify(epout, epin)
-    if stage != ADNL_SPL_STAGE:
-        raise RuntimeError(f'Stage:{stage} ({stages[stage]}). '
-                           'Seems, BL2 has not been booted yet. Probably, '
-                           'you are trying to boot for example the unsigned '
-                           'BL2 on securebooted device. '
-                           'Check your image, please')
+    if stage != Stage.SPL:
+        raise RuntimeError(
+            f'Stage:{stage.name}. Seems, BL2 has not been booted yet. '
+            'Probably, you are trying to boot for example the unsigned '
+            'BL2 on securebooted device. Check your image, please'
+        )
 
     logging.info('Send burnsteps after BL2')
     send_burnsteps(epout, epin, BOOTROM_BURNSTEPS_3)
@@ -405,12 +429,12 @@ def do_adnl_burn(reset, erase_code, aml_img):
 
     stage = send_cmd_identify(epout, epin)
 
-    if stage == ADNL_TPL_STAGE:
+    if stage == Stage.TPL:
         send_cmd(epout, epin, 'reboot-romusb')
 
         dev = wait_for_device(dev_addr_rom_stage)
-    elif stage != ADNL_ROM_STAGE:
-        raise RuntimeError(f'Unknown stage: {stage}')
+    elif stage != Stage.ROM:
+        raise RuntimeError(f'Unknown stage: {stage.name}')
 
     dev_addr_rom_stage = dev.address
     epout, epin = get_device_eps(dev)
