@@ -16,6 +16,7 @@ except ImportError:
 import logging
 import time
 import typing
+import usb.core
 from collections import OrderedDict
 from dataclasses import dataclass
 from struct import pack, unpack
@@ -23,6 +24,24 @@ from struct import pack, unpack
 import usb_backend
 
 USB_BACKEND = usb_backend.get_backend()
+
+
+def wait_device(identify=True, timeout=10.0):
+    start_time = time.time()
+    while True:
+        try:
+            usbd = pyamlboot.AmlogicSoC(usb_backend=USB_BACKEND)
+            if identify:
+                ident = usbd.identify()
+        except Exception:
+            pass
+        else:
+            return usbd
+
+        if (time.time() - start_time) >= timeout:
+            raise TimeoutError('Detect Device connect timeout')
+
+        time.sleep(0.2)
 
 
 class BulkCmdError(Exception):
@@ -87,23 +106,6 @@ class BurnStepBase:
     def __init__(self, shared_data):
         self._shared_data = shared_data
         self._title = 'UNKNOWN'
-
-    def _wait_device(self, for_connect=True, timeout=10.0):
-        start_time = time.time()
-        while True:
-            try:
-                pyamlboot.AmlogicSoC(usb_backend=USB_BACKEND)
-            except Exception:
-                if not for_connect:
-                    break
-
-                if (time.time() - start_time) >= timeout:
-                    raise TimeoutError('Detect Device connect timeout')
-            else:
-                if for_connect:
-                    break
-
-            time.sleep(0.5)
 
     def header(self):
         logging.info(f'---- start {self._title} ----')
@@ -174,13 +176,10 @@ class BurnStepEraseBootloader(BurnStepBase):
         self._check_bulk_cmd('erase_bootloader')
         try:
             self._check_bulk_cmd('reset')
+            self._dev.disposeDevice()
         except Exception:
             pass
 
-        logging.info('Waiting for connect device after reset...')
-        self._wait_device(True)
-        self._wait_device()
-        logging.info('Device is connected')
         return True
 
 
@@ -294,7 +293,7 @@ class BurnStepDownloadBase(BurnStepBase):
                                    blockLength=len(params))
 
     def _check_para(self, magic):
-        data = self._dev.readLargeMemory(self._platform.bl2ParaAddr, 0x200)
+        data = self._dev.readLargeMemory(self._platform.bl2ParaAddr, 0x200, 0x200)
         para_magic = unpack('<I', data[:4])[0]
         if para_magic != magic:
             raise Exception(f'Fail read para: {para_magic:x}')
@@ -513,12 +512,7 @@ class BurnStepDownloadUboot(BurnStepDownloadBase):
         socid = SocId(self._dev.identify())
         self._run()
 
-        self._wait_device(False)
-        self._wait_device()
-        time.sleep(5)
-
-        self._dev = pyamlboot.AmlogicSoC(usb_backend=USB_BACKEND)
-        socid = SocId(self._dev.identify())
+        self._dev.disposeDevice()
         return True
 
 
@@ -734,7 +728,7 @@ def do_burn(burn_steps):
     for step in burn_steps:
         if reopen_dev:
             try:
-                dev = pyamlboot.AmlogicSoC(usb_backend=USB_BACKEND)
+                dev = wait_device()
             except usb.core.NoBackendError:
                 logging.error('Please install libusb')
                 raise

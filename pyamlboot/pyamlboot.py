@@ -12,7 +12,6 @@ import string
 import os
 import time
 import usb.core
-import usb.util
 from struct import Struct, unpack, pack
 
 REQ_WRITE_MEM = 0x01
@@ -86,6 +85,13 @@ class AmlogicSoC(object):
                                wValue = address >> 16,
                                wIndex = address & 0xffff,
                                data_or_wLength = data)
+
+    def disposeDevice(self):
+        try:
+            usb.util.dispose_resources(self.dev)
+            self.dev = None
+        except Exception as e:
+            print("Can't release device. {0}: {1}".format(type(e).__name__, e))
 
     def writeMemory(self, address, data):
         """Write some data to memory"""
