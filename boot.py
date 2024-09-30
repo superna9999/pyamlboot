@@ -39,7 +39,10 @@ class BootUSB:
             sys.stderr.write('Unsupported board %s, please fill boot parameters\n' % board)
             sys.exit(1)
 
-        self.dev = pyamlboot.AmlogicSoC()
+        if args.timeout is None or args.timeout > 0:
+            print("Waiting for device to enumerate...")
+
+        self.dev = pyamlboot.AmlogicSoC(timeout=args.timeout)
         self.fpath = fpath
         if upath:
             self.bpath = upath
@@ -98,6 +101,13 @@ class BootUSB:
 def list_boards(p):
     return [ d for d in os.listdir(p) if os.path.isdir(os.path.join(p, d)) and (d in gx_boards or d in axg_boards) ]
 
+def parse_wait(value):
+    try:
+        value = float(value)
+    except:
+        value = None
+    return value
+
 def parse_cmdline(boards):
     parser = argparse.ArgumentParser(description="USB boot tool for Amlogic",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -114,6 +124,8 @@ def parse_cmdline(boards):
                         help="dtb file to load")
     parser.add_argument('--ramfs', dest='ramfsfile',  action='store',
                         help="ramfs file to load")
+    parser.add_argument('--timeout', type=parse_wait, action='store', default=0,
+                        help="Timeout in seconds for device to enumerate")
 
     args = parser.parse_args()
 
