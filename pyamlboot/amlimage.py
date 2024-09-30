@@ -5,8 +5,10 @@
 Amlogic Burning Image manipulation Library
 
    Copyright (c) 2024, SaluteDevices
+   Copyright (c) 2024, JetHome
 
 @author: Martin Kurbanov <mmkurbanov@salutedevices.com>
+@author: Viacheslav Bocharov <adeep@lexina.in>
 """
 
 import hashlib
@@ -37,7 +39,11 @@ class AmlImgHead(LittleEndianStructure):
     ]
 
 
-class AmlImgItemInfoV1(LittleEndianStructure):
+class AmlImgItemInfo(LittleEndianStructure):
+    pass
+
+
+class AmlImgItemInfoV1(AmlImgItemInfo):
     _pack_ = 1
     _fields_ = [
         ('id', c_uint32),
@@ -54,7 +60,7 @@ class AmlImgItemInfoV1(LittleEndianStructure):
     ]
 
 
-class AmlImgItemInfoV2(LittleEndianStructure):
+class AmlImgItemInfoV2(AmlImgItemInfo):
     _pack_ = 1
     _fields_ = [
         ('id', c_uint32),
@@ -72,7 +78,7 @@ class AmlImgItemInfoV2(LittleEndianStructure):
 
 
 class AmlImageItem:
-    def __init__(self, f, info):
+    def __init__(self, f, info: AmlImgItemInfo):
         self._f = f
         self._info = info
         self._main_type = info.main_type.decode('utf-8')
@@ -132,8 +138,12 @@ class AmlImageItem:
 
 
 class AmlImagePack:
-    def __init__(self, name):
-        self._open(name)
+    def __init__(self, name, is_cfg=False):
+        self._iscfg = False
+        if is_cfg:
+            self._opendir(name)
+        else:
+            self._open(name)
 
     @staticmethod
     def _check_head(head):
@@ -184,6 +194,87 @@ class AmlImagePack:
 
         self._f = f
 
+    def _opendir(self, imgcfg):
+        if isinstance(imgcfg, str):
+            img_name = imgcfg
+        else:
+            img_name = imgcfg.name
+
+        self._head = AmlImgHead()
+        self._items = []
+
+        current_section = None
+        base_path = os.path.dirname(img_name)
+
+        file = open(img_name, 'r')
+        _id = 0
+        for line in file:
+            line = line.strip()
+            if line.startswith('[') and line.endswith(']'):
+                current_section = line[1:-1]
+            elif line.startswith('file='):
+                parts = line.split()
+                attributes = {}
+                for part in parts:
+                    key, value = part.split('=')
+                    attributes[key] = value.strip('"')
+
+                file_name = attributes['file']
+                full_file_path = os.path.join(base_path, file_name)
+                file_size = os.path.getsize(full_file_path) if os.path.exists(full_file_path) else 0
+
+                info = AmlImgItemInfoV2(
+                    id=0,  # Assuming 'id' and other attributes as 0 or default values for now
+                    file_type=0x00 if attributes['file_type'] == 'normal' else 0xfe,
+                    cur_offset=0,
+                    offset_in_img=0,
+                    size=file_size,
+                    main_type=attributes['main_type'].encode('utf-8'),
+                    sub_type=attributes['sub_type'].encode('utf-8'),
+                    verify=1 if current_section == 'LIST_VERIFY' else 0,
+                    is_backup=0,
+                    backup_id=0,
+                    reserve=(c_byte * 24)()
+                )
+                _id += 1
+
+                f = open(full_file_path, "rb")
+                newitem = AmlImageItem(f, info)
+                self._items.append(newitem)
+                if info.verify:
+                    info_verify = AmlImgItemInfoV2(
+                        id=0,  # Assuming 'id' and other attributes as 0 or default values for now
+                        file_type=0x00 if attributes['file_type'] == 'normal' else 0xfe,
+                        cur_offset=0,
+                        offset_in_img=0,
+                        size=file_size,
+                        main_type='VERIFY'.encode('utf-8'),
+                        sub_type=attributes['sub_type'].encode('utf-8'),
+                        verify=0,
+                        is_backup=0,
+                        backup_id=0,
+                        reserve=(c_byte * 24)()
+                    )
+                    sha1 = hashlib.sha1()
+                    while True:
+                        data = f.read(4096)
+                        if not data:
+                            break
+                        sha1.update(data)
+                    sha1sum = sha1.hexdigest()
+                    sha_text = f'sha1sum {sha1sum}'
+                    # temp_file = io.StringIO()
+                    temp_file = io.BytesIO(sha_text.encode('utf-8'))
+                    temp_file.name = f.name
+                    f.seek(0)
+                    _id += 1
+                    newitem = AmlImageItem(temp_file, info_verify)
+                    self._items.append(newitem)
+
+        self._iscfg = True
+        self._f = file
+        return self._items
+
     @staticmethod
     def item_cmp(item, main_type=None, sub_type=None, file_type=None):
         if main_type and main_type != item.main_type():
@@ -214,3 +305,4 @@ class AmlImagePack:
             raise ValueError(f'Item {main_type}:{sub_type} not found')
 
         return item
+
