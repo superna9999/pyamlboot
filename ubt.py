@@ -46,7 +46,7 @@ def main():
     parser.add_argument('--wipe',
                         type=lambda x: WipeFormat[x],
                         choices=list(WipeFormat),
-                        default='no',
+                        default='normal',
                         help='Destroy all partitions')
     parser.add_argument('--password',
                         type=argparse.FileType('rb'),
