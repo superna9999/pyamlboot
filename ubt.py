@@ -12,8 +12,8 @@ import sys
 from enum import Enum
 
 from adnl import do_adnl_burn
-from aml_image_packer import AmlImagePack
-from optimus import do_optimus_burn
+from pyamlboot.amlimage import AmlImagePack
+from pyamlboot.optimus import do_optimus_burn
 
 
 class WipeFormat(Enum):
