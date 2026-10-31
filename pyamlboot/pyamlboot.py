@@ -464,7 +464,7 @@ class AmlogicSoC(object):
             elif left >= 2:
                 val = unpack('<H', data[offset:offset+2])[0]
             else:
-                val = unpack('<B', data[offset])[0]
+                val = unpack('<B', data[offset:offset+1])[0]
             offset = offset + 4
             checksum = (checksum + abs(val)) % uint32_max
 
