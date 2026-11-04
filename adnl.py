@@ -239,6 +239,12 @@ def send_burnsteps(epout, epin, burnstep):
 def tpl_burn_partition(part_item, aml_img, epout, epin):
     part_name = part_item.sub_type()
     logging.info('Burning partition "%s"', part_name)
+
+    verify_cmd = None
+    if part_item.is_verify():
+        verify_item = aml_img.item_get('VERIFY', part_name)
+        verify_cmd = f'oem verify {verify_item.read().decode("utf-8")}'
+
     # To burn partition, first send the following command:
     # 'oem mwrite <partition size> normal store <partition name>'
     # Reply must be 'OKAY'.
@@ -298,11 +304,11 @@ def tpl_burn_partition(part_item, aml_img, epout, epin):
         except RuntimeError as e:
             raise RuntimeError('CRC error during tx') from e
 
-    # get 'VERIFY' entry for this partition
-    verify_item = aml_img.item_get('VERIFY', part_name)
-    sha1sum_str = f'oem verify {verify_item.read().decode("utf-8")}'
+    if verify_cmd is None:
+        return
+
     logging.info('Verifying partition checksum using SHA1...')
-    epout.write(sha1sum_str)
+    epout.write(verify_cmd)
 
     strmsg = ''
 
