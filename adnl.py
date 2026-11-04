@@ -134,7 +134,12 @@ def send_cmd(epout, epin, cmd, expected_res=ADNL_REPLY_OKAY):
     * header is a kind of ack for cmd, with values: OKAY, FAIL, INFO or DATA
     * payload depends on the cmd type
     '''
-    epout.write(cmd, USB_IO_TIMEOUT_MS)
+    written = epout.write(cmd, USB_IO_TIMEOUT_MS)
+    if written != len(cmd):
+        raise RuntimeError(
+            f'Short USB write: expected {len(cmd)} bytes, wrote {written}'
+        )
+
     msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
 
     if len(msg) < 4:
