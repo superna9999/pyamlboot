@@ -104,6 +104,7 @@ class CBW:
         self._size = int.from_bytes(msg[12:16], 'little')
         self._offs = int.from_bytes(msg[16:20], 'little')
         self._need_checksum = not int.from_bytes(msg[20:21], 'little')
+        self._is_upload = bool(msg[20] & 0x80)
         self._end = msg[21]
 
     def size(self):
@@ -114,6 +115,9 @@ class CBW:
 
     def offset(self):
         return self._offs
+
+    def is_upload(self):
+        return self._is_upload
 
 
 def adnl_get_prefix(msg):
@@ -408,6 +412,9 @@ def run_bl2_stage(epout, epin, aml_img, has_secureboot):
         if cbw.done() != 0:
             logging.info('TPL sending is done')
             break
+
+        if cbw.is_upload():
+            raise RuntimeError('BL2 upload requests are not supported')
 
         item.seek(cbw.offset())
         buf = item.read(size)
