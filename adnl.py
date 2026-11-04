@@ -409,8 +409,20 @@ def run_bl2_stage(epout, epin, aml_img, has_secureboot):
             logging.info('TPL sending is done')
             break
 
-        item.seek(cbw.offset())
+        offset = cbw.offset()
+        if offset + size > item.size():
+            raise ValueError(
+                f'BL2 request exceeds item bounds: offset {offset}, '
+                f'size {size}, item size {item.size()}'
+            )
+
+        item.seek(offset)
         buf = item.read(size)
+        if len(buf) != size:
+            raise ValueError(
+                f'Short BL2 read: expected {size} bytes, got {len(buf)}'
+            )
+
         buf_offs = 0
         cur_sum = 0
 
