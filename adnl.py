@@ -135,17 +135,22 @@ def send_cmd(epout, epin, cmd, expected_res=ADNL_REPLY_OKAY):
     * payload depends on the cmd type
     '''
     epout.write(cmd, USB_IO_TIMEOUT_MS)
-    msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
+    while True:
+        msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
 
-    if len(msg) < 4:
-        raise RuntimeError(f'Too short reply: {len(msg)}')
+        if len(msg) < 4:
+            raise RuntimeError(f'Too short reply: {len(msg)}')
 
-    header = adnl_get_prefix(msg)
+        header = adnl_get_prefix(msg)
+        if header == ADNL_REPLY_INFO:
+            logging.info('Device info: %s',
+                         msg[4:].tobytes().decode('utf-8', errors='replace'))
+            continue
 
-    if header != expected_res:
-        raise RuntimeError(f'Unexpected reply:{header} to cmd:{cmd}')
+        if header != expected_res:
+            raise RuntimeError(f'Unexpected reply:{header} to cmd:{cmd}')
 
-    return msg
+        return msg
 
 
 def send_cmd_identify(epout, epin):
