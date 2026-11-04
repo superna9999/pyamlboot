@@ -240,9 +240,10 @@ def tpl_burn_partition(part_item, aml_img, epout, epin):
     part_name = part_item.sub_type()
     logging.info('Burning partition "%s"', part_name)
     # To burn partition, first send the following command:
-    # 'oem mwrite <partition size> normal store <partition name>'
+    # 'oem mwrite <partition size> <image format> store <partition name>'
     # Reply must be 'OKAY'.
-    oem_cmd = f'oem mwrite 0x{part_item.size():x} normal store {part_name}'
+    oem_cmd = (f'oem mwrite 0x{part_item.size():x} '
+               f'{part_item.file_type()} store {part_name}')
     send_cmd(epout, epin, oem_cmd)
 
     while True:
