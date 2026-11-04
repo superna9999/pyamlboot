@@ -362,14 +362,24 @@ def run_bootrom_stage(epout, epin, aml_img, has_secureboot):
     # Reply is null-terminated
     bl2_size = int(msg.tobytes().split(b'\x00', 1)[0][4:], 0)
 
+    if bl2_size <= 0 or bl2_size > item.size():
+        raise ValueError(
+            f'Invalid BL2 download size {bl2_size}: item size is {item.size()}'
+        )
+
+    # The ROM requests a prefix of the loader, not necessarily the whole item.
+    item.seek(0)
+    buf = item.read(bl2_size)
+    if len(buf) != bl2_size:
+        raise ValueError(
+            f'Short BL2 read: expected {bl2_size} bytes, got {len(buf)}'
+        )
+
     logging.info('Send download size:0x{:08x} for BL2'.format(bl2_size))
-    # Despite another size of image, send only part of whole image with the
-    # size, extracted by 'downloadsize' cmd - seems ROM code works only with
-    # this value.
     send_cmd(epout, epin, 'download:{:08x}'.format(bl2_size), ADNL_REPLY_DATA)
 
     logging.info('Sending SPL image...')
-    send_cmd(epout, epin, item.read())
+    send_cmd(epout, epin, buf)
     logging.info('Done')
 
     send_burnsteps(epout, epin, BOOTROM_BURNSTEPS_2)
