@@ -110,6 +110,7 @@ class CBW:
         return self._size
 
     def done(self):
+        # Raw request type: 0 = transfer, 1 = complete, 0xff = wait.
         return self._end
 
     def offset(self):
@@ -403,12 +404,29 @@ def run_bl2_stage(epout, epin, aml_img, has_secureboot):
         # request cbw
         cbw = send_and_handle_cbw(epout, epin)
 
-        size = cbw.size()
+        request_type = cbw.done()
+        if request_type == 0xff:
+            logging.info('BL2 requested wait; re-identifying...')
+            time.sleep(0.5)
+            stage = send_cmd_identify(epout, epin)
+            if stage != Stage.SPL:
+                raise RuntimeError(
+                    f'Unexpected stage after BL2 wait: {stage.name}'
+                )
+            cbw = send_and_handle_cbw(epout, epin)
+            request_type = cbw.done()
+            if request_type == 0xff:
+                raise RuntimeError('BL2 still requests WAIT after waiting')
 
-        if cbw.done() != 0:
+        if request_type == 1:
             logging.info('TPL sending is done')
             break
+        if request_type != 0:
+            raise RuntimeError(
+                f'BL2 reported error request type: {request_type:#04x}'
+            )
 
+        size = cbw.size()
         item.seek(cbw.offset())
         buf = item.read(size)
         buf_offs = 0
