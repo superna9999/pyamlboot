@@ -499,8 +499,8 @@ def run_tpl_stage(reset, erase_code, aml_img, dev_addr_rom_stage):
 
     for item in aml_img.items():
         if item.main_type() == 'PARTITION':
-            has_bootloader = (item.sub_type() == 'bootloader')
             tpl_burn_partition(item, aml_img, epout, epin)
+            has_bootloader = has_bootloader or item.sub_type() == 'bootloader'
 
     if has_bootloader:
         logging.info('Sending save_setting...')
