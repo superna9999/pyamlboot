@@ -115,6 +115,9 @@ class CBW:
     def offset(self):
         return self._offs
 
+    def need_checksum(self):
+        return self._need_checksum
+
 
 def adnl_get_prefix(msg):
     return msg[:4].tobytes().decode()
@@ -423,20 +426,22 @@ def run_bl2_stage(epout, epin, aml_img, has_secureboot):
             except RuntimeError as e:
                 raise RuntimeError('Data tx failed') from e
 
-            cur_sum += adnl_checksum(buf[buf_offs:buf_offs + to_send])
+            if cbw.need_checksum():
+                cur_sum += adnl_checksum(buf[buf_offs:buf_offs + to_send])
             size -= to_send
             buf_offs += to_send
 
-        send_cmd(epout, epin, 'setvar:checksum', ADNL_REPLY_DATA)
+        if cbw.need_checksum():
+            send_cmd(epout, epin, 'setvar:checksum', ADNL_REPLY_DATA)
 
-        bytes_sum = [(cur_sum >> i) & 0xff for i in range(0, 32, 8)]
+            bytes_sum = [(cur_sum >> i) & 0xff for i in range(0, 32, 8)]
 
-        try:
-            send_cmd(epout, epin, bytes_sum)
-        except RuntimeError as e:
-            raise RuntimeError('CRC error during tx') from e
+            try:
+                send_cmd(epout, epin, bytes_sum)
+            except RuntimeError as e:
+                raise RuntimeError('CRC error during tx') from e
 
-        logging.info('Sending CRC done')
+            logging.info('Sending CRC done')
 
 
 def tpl_send_burnsteps(epout, epin, second_arg):
