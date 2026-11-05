@@ -265,8 +265,12 @@ def tpl_burn_partition(part_item, aml_img, epout, epin):
         # device replies 'OKAY'.
 
         epout.write('mwrite:verify=addsum', USB_IO_TIMEOUT_MS)
-        msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
-        strmsg = msg.tobytes().decode()
+        while True:
+            msg = epin.read(USB_READ_LEN, USB_IO_TIMEOUT_MS)
+            strmsg = msg.tobytes().decode()
+            if not strmsg.startswith(ADNL_REPLY_INFO):
+                break
+            logging.info('Device info: %s', strmsg[4:])
 
         if strmsg.startswith(ADNL_REPLY_OKAY):
             logging.info('Burning is done')
