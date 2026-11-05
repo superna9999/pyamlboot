@@ -280,8 +280,16 @@ def tpl_burn_partition(part_item, aml_img, epout, epin):
         size = int(size_offs[0], 16)
         offs = int(size_offs[1], 16)
 
+        if offs + size > part_item.size():
+            raise RuntimeError('Partition transfer request exceeds item size')
+
         part_item.seek(offs)
         buf = part_item.read(size)
+        if len(buf) != size:
+            raise RuntimeError(
+                f'Short partition read: expected {size} bytes, got {len(buf)}'
+            )
+
         sum_res = adnl_checksum(buf)
         buf_offs = 0
 
