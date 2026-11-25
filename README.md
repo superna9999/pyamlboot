@@ -114,7 +114,7 @@ Plug into this USB port
 
 The USB-C is used to power and communicate with the Boot ROM.
 
-For Khadas-VIM, follow https://docs.khadas.com/vim1/HowtoBootIntoUpgradeMode.html#TST-Mode-Recommended
+On the Khadas VIM1, TST mode requires PCB revision V1.4 or later. For earlier boards such as V1.2, see the other entry methods in the [VIM1 upgrade-mode guide](https://docs.khadas.com/products/sbc/vim1/install-os/boot-into-upgrade-mode).
 
 For Khadas-VIM2, follow https://docs.khadas.com/vim2/HowtoBootIntoUpgradeMode.html#TST-Mode-v1-4-only
 
@@ -157,4 +157,17 @@ If `boot.cmd` changed, run :
 
 ```
 mkimage -C none -A arm -T script -d boot.cmd boot.scr
+```
+
+### Khadas VIM1 with a built-in initramfs
+
+If the arm64 `Image` contains its own initramfs, omit `--ramfs` and pass
+`-` in the ramdisk position of U-Boot's `booti` command. The supplied
+`boot.cmd` expects an external ramdisk at `0x13000000`. From this checkout,
+with `Image` and its matching VIM1 DTB in the current directory, run:
+
+```sh
+mkimage -C none -A arm -T script -d boot-initramfs.cmd boot-initramfs.scr
+sudo ./boot.py --image Image --fdt meson-gxl-s905x-khadas-vim.dtb \
+    --script boot-initramfs.scr khadas-vim
 ```
